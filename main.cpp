@@ -24,20 +24,19 @@ bool automaticMode = false;
 // ======================================================
 
 const int TREE_COUNT = 14;
-
+//x positon of trees
 float treeX[TREE_COUNT] = {
     -98, -92, -78, -64, -50, -35, -18, 0,
     18, 35, 52, 72, 90, 92
 };
-
+// basically size of trees
 float treeScale[TREE_COUNT] = {
     0.65, 0.85, 0.70, 1.00, 0.75, 0.90, 1.10,
     0.75, 0.95, 0.70, 1.05, 0.80, 1.05, 0.80
 };
 
-// Different ground positions make the forest
-// look slightly less uniform.
 
+//y position of trees
 float treeY[TREE_COUNT] = {
     -20, -25, -20, -23, -21, -26, -22,
     -22, -23, -24, -21, -20, -24, -22
@@ -293,7 +292,7 @@ void drawTreeLeaves(float x, float y, float scale)
 }
 
 // ======================================================
-// COMPLETE TREE
+// COMPLETE TREE( here were adding all the different tree element that we made before from the line 174
 // ======================================================
 
 void drawTree(float x, float y, float scale)
@@ -312,14 +311,14 @@ void drawTree(float x, float y, float scale)
 }
 
 // ======================================================
-// COMPLETE FOREST
+// COMPLETE FOREST(here we use the forest making
 // ======================================================
 
 void drawForest()
 {
     for(int i = 0; i < TREE_COUNT; i++)
     {
-        drawTree(treeX[i], treeY[i], treeScale[i]);
+        drawTree(treeX[i], treeY[i], treeScale[i]);// these are the positions and scales we added at the 1st of the code hehe
     }
 }
 
@@ -395,7 +394,7 @@ void display()
     // FOREST
     // --------------------------------------------------
 
-    drawForest();
+    drawForest();// we called the forest func here in display
 
     // --------------------------------------------------
     // OTHER MEMBERS WILL ADD THEIR FUNCTIONS HERE
