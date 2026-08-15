@@ -1,0 +1,613 @@
+#include <windows.h>
+#include <GL/glut.h>
+#include <math.h>
+#include <stdlib.h>
+
+#define PI 3.14159265
+
+// ======================================================
+// SEASONS
+// ======================================================
+
+#define SPRING 0
+#define SUMMER 1
+#define RAINY 2
+#define AUTUMN 3
+#define WINTER 4
+
+int currentSeason = SPRING;
+bool paused = false;
+bool automaticMode = false;
+
+// ======================================================
+// TREE DATA
+// ======================================================
+
+const int TREE_COUNT = 14;
+
+float treeX[TREE_COUNT] = {
+    -98, -92, -78, -64, -50, -35, -18, 0,
+    18, 35, 52, 72, 90, 92
+};
+
+float treeScale[TREE_COUNT] = {
+    0.65, 0.85, 0.70, 1.00, 0.75, 0.90, 1.10,
+    0.75, 0.95, 0.70, 1.05, 0.80, 1.05, 0.80
+};
+
+// Different ground positions make the forest
+// look slightly less uniform.
+
+float treeY[TREE_COUNT] = {
+    -20, -25, -20, -23, -21, -26, -22,
+    -22, -23, -24, -21, -20, -24, -22
+};
+
+// ======================================================
+// CLOUD VARIABLES
+// ======================================================
+
+float cloud1X = -80;
+float cloud2X = -10;
+float cloud3X = 60;
+
+// ======================================================
+// BASIC RECTANGLE FUNCTION
+// ======================================================
+
+void rectangle(float x1, float y1, float x2, float y2)
+{
+    glBegin(GL_QUADS);
+    glVertex2f(x1, y1);
+    glVertex2f(x2, y1);
+    glVertex2f(x2, y2);
+    glVertex2f(x1, y2);
+    glEnd();
+}
+
+// ======================================================
+// BASIC CIRCLE FUNCTION
+// ======================================================
+
+void circle(float x, float y, float radius)
+{
+    glBegin(GL_POLYGON);
+
+    for(int i = 0; i < 100; i++)
+    {
+        float angle = 2.0f * PI * i / 100.0f;
+        float px = x + radius * cos(angle);
+        float py = y + radius * sin(angle);
+        glVertex2f(px, py);
+    }
+
+    glEnd();
+}
+
+// ======================================================
+// SKY
+// ======================================================
+
+void drawSky()
+{
+    // Sky blue
+
+    glColor3ub(128, 204, 255);
+
+    rectangle(-100, -20, 100, 100);
+}
+
+// ======================================================
+// GROUND
+// ======================================================
+
+void drawGround()
+{
+    // Green grass
+
+    glColor3ub(51, 140, 46);
+
+    rectangle(-100, -60, 100, -20);
+}
+
+// ======================================================
+// SUN
+// ======================================================
+
+void drawSun()
+{
+    // Yellow sun
+
+    glColor3ub(255, 217, 26);
+
+    circle(75, 78, 9);
+}
+
+// ======================================================
+// CLOUD
+// ======================================================
+
+void drawCloud(float x, float y, float size)
+{
+    // White cloud
+
+    glColor3ub(242, 242, 242);
+
+    // Left part
+
+    circle(x - size * 0.8f, y, size * 0.7f);
+
+    // Center part
+
+    circle(x, y + 2, size);
+
+    // Right part
+
+    circle(x + size * 0.8f, y, size * 0.8f);
+
+    // Bottom part
+
+    rectangle(
+        x - size * 0.8f,
+        y - size * 0.5f,
+        x + size * 0.8f,
+        y + size * 0.35f
+    );
+}
+
+// ======================================================
+// ALL CLOUDS
+// ======================================================
+
+void drawClouds()
+{
+    drawCloud(cloud1X, 80, 7);
+    drawCloud(cloud2X, 85, 8);
+    drawCloud(cloud3X, 75, 6);
+}
+
+// ======================================================
+// TREE TRUNK
+// ======================================================
+//basically were setting a default tree structure , pore icha moto place e amra tree ke positioning koraitesi
+//tree er position amra line 28 thika korsi, eikhane just tree fucntion ta add korsi, reason is (different season e specific element edit korbo just)
+
+void drawTreeTrunk(float x, float y, float scale)
+{
+    // Brown trunk
+
+    glColor3ub(89, 46, 18);
+
+    glBegin(GL_QUADS);
+
+    // Bottom-left
+
+    glVertex2f(x - 3 * scale, y);
+
+    // Bottom-right
+
+    glVertex2f(x + 3 * scale, y);
+
+    // Top-right
+
+    glVertex2f(x + 2 * scale, y + 50 * scale);
+
+    // Top-left
+
+    glVertex2f(x - 2 * scale, y + 50 * scale);
+
+    glEnd();
+}
+
+// ======================================================
+// TREE BRANCHES
+// ======================================================
+
+void drawBranches(float x, float y, float scale)
+{
+    // Dark brown branches
+
+    glColor3ub(77, 38, 13);
+
+    glLineWidth(5.0f);
+
+    glBegin(GL_LINES);
+
+    // --------------------------------------------------
+    // LEFT MAIN BRANCH
+    // --------------------------------------------------
+
+    glVertex2f(x, y + 15 * scale);
+    glVertex2f(x - 20 * scale, y + 40 * scale);
+
+    // --------------------------------------------------
+    // RIGHT MAIN BRANCH
+    // --------------------------------------------------
+
+    glVertex2f(x, y + 18 * scale);
+    glVertex2f(x + 20 * scale, y + 42 * scale);
+
+    // --------------------------------------------------
+    // CENTER BRANCH
+    // --------------------------------------------------
+
+    glVertex2f(x, y + 20 * scale);
+    glVertex2f(x, y + 50 * scale);
+
+    // --------------------------------------------------
+    // SMALL LEFT BRANCH
+    // --------------------------------------------------
+
+    glVertex2f(x - 7 * scale, y + 27 * scale);
+    glVertex2f(x - 25 * scale, y + 35 * scale);
+
+    // --------------------------------------------------
+    // SMALL RIGHT BRANCH
+    // --------------------------------------------------
+
+    glVertex2f(x + 7 * scale, y + 30 * scale);
+    glVertex2f(x + 25 * scale, y + 38 * scale);
+
+    glEnd();
+}
+
+// ======================================================
+// NORMAL GREEN TREE LEAVES
+// ======================================================
+
+void drawTreeLeaves(float x, float y, float scale)
+{
+    // Normal green forest color
+
+    glColor3ub(10, 122, 18);
+
+    // --------------------------------------------------
+    // LEFT FOLIAGE
+    // --------------------------------------------------
+
+    circle(x - 15 * scale, y + 48 * scale, 14 * scale);
+
+    // --------------------------------------------------
+    // TOP FOLIAGE
+    // --------------------------------------------------
+
+    circle(x, y + 60 * scale, 17 * scale);
+
+    // --------------------------------------------------
+    // RIGHT FOLIAGE
+    // --------------------------------------------------
+
+    circle(x + 15 * scale, y + 48 * scale, 14 * scale);
+
+    // --------------------------------------------------
+    // LOWER LEFT FOLIAGE
+    // --------------------------------------------------
+
+    circle(x - 7 * scale, y + 40 * scale, 12 * scale);
+
+    // --------------------------------------------------
+    // LOWER RIGHT FOLIAGE
+    // --------------------------------------------------
+
+    circle(x + 8 * scale, y + 40 * scale, 12 * scale);
+}
+
+// ======================================================
+// COMPLETE TREE
+// ======================================================
+
+void drawTree(float x, float y, float scale)
+{
+    // Draw trunk first
+
+    drawTreeTrunk(x, y, scale);
+
+    // Draw branches
+
+    drawBranches(x, y, scale);
+
+    // Draw leaves last
+
+    drawTreeLeaves(x, y, scale);
+}
+
+// ======================================================
+// COMPLETE FOREST
+// ======================================================
+
+void drawForest()
+{
+    for(int i = 0; i < TREE_COUNT; i++)
+    {
+        drawTree(treeX[i], treeY[i], treeScale[i]);
+    }
+}
+
+// ======================================================
+// CLOUD ANIMATION
+// ======================================================
+
+void updateClouds()
+{
+    // Clouds move normally except
+    // during the rainy season.
+
+    if(currentSeason != RAINY)
+    {
+        cloud1X += 0.08f;
+        cloud2X += 0.05f;
+        cloud3X += 0.06f;
+
+        // Reset cloud when it leaves
+        // the right side.
+
+        if(cloud1X > 115)
+        {
+            cloud1X = -115;
+        }
+
+        if(cloud2X > 115)
+        {
+            cloud2X = -115;
+        }
+
+        if(cloud3X > 115)
+        {
+            cloud3X = -115;
+        }
+    }
+}
+
+// ======================================================
+// MAIN DISPLAY
+// ======================================================
+
+void display()
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+    glLoadIdentity();
+
+    // --------------------------------------------------
+    // SKY
+    // --------------------------------------------------
+
+    drawSky();
+
+    // --------------------------------------------------
+    // SUN
+    // --------------------------------------------------
+
+    drawSun();
+
+    // --------------------------------------------------
+    // CLOUDS
+    // --------------------------------------------------
+
+    drawClouds();
+
+    // --------------------------------------------------
+    // GROUND
+    // --------------------------------------------------
+
+    drawGround();
+
+    // --------------------------------------------------
+    // FOREST
+    // --------------------------------------------------
+
+    drawForest();
+
+    // --------------------------------------------------
+    // OTHER MEMBERS WILL ADD THEIR FUNCTIONS HERE
+    // --------------------------------------------------
+
+    /*
+        Example:
+
+        drawSpringEnvironment();
+        drawSummerEnvironment();
+        drawRain();
+        drawAutumnLeaves();
+        drawWinterEnvironment();
+    */
+
+    glutSwapBuffers();
+}
+
+// ======================================================
+// UPDATE / ANIMATION
+// ======================================================
+
+void update(int value)
+{
+    if(!paused)
+    {
+        // ----------------------------------------------
+        // CLOUD ANIMATION
+        // ----------------------------------------------
+
+        updateClouds();
+
+        // ----------------------------------------------
+        // OTHER MEMBERS WILL ADD THEIR ANIMATION HERE
+        // ----------------------------------------------
+
+        /*
+            Example:
+
+            updateRain();
+            updateAutumnLeaves();
+            updateSnow();
+        */
+    }
+
+    // Tell OpenGL to redraw
+
+    glutPostRedisplay();
+
+    // Call update again after 30 milliseconds
+
+    glutTimerFunc(30, update, 0);
+}
+
+// ======================================================
+// KEYBOARD
+// ======================================================
+
+void keyboard(unsigned char key, int x, int y)
+{
+    // --------------------------------------------------
+    // SPRING
+    // --------------------------------------------------
+
+    if(key == '1')
+    {
+        currentSeason = SPRING;
+        automaticMode = false;
+    }
+
+    // --------------------------------------------------
+    // SUMMER
+    // --------------------------------------------------
+
+    else if(key == '2')
+    {
+        currentSeason = SUMMER;
+        automaticMode = false;
+    }
+
+    // --------------------------------------------------
+    // RAINY
+    // --------------------------------------------------
+
+    else if(key == '3')
+    {
+        currentSeason = RAINY;
+        automaticMode = false;
+    }
+
+    // --------------------------------------------------
+    // AUTUMN
+    // --------------------------------------------------
+
+    else if(key == '4')
+    {
+        currentSeason = AUTUMN;
+        automaticMode = false;
+    }
+
+    // --------------------------------------------------
+    // WINTER
+    // --------------------------------------------------
+
+    else if(key == '5')
+    {
+        currentSeason = WINTER;
+        automaticMode = false;
+    }
+
+    // --------------------------------------------------
+    // AUTOMATIC MODE
+    // --------------------------------------------------
+
+    else if(key == 'a' || key == 'A')
+    {
+        automaticMode = true;
+    }
+
+    // --------------------------------------------------
+    // PAUSE
+    // --------------------------------------------------
+
+    else if(key == ' ')
+    {
+        paused = !paused;
+    }
+
+    // --------------------------------------------------
+    // ESCAPE
+    // --------------------------------------------------
+
+    else if(key == 27)
+    {
+        exit(0);
+    }
+
+    glutPostRedisplay();
+}
+
+// ======================================================
+// INITIALIZATION
+// ======================================================
+
+void init()
+{
+    // NOTE:
+    // glClearColor uses FLOAT values,
+    // so it remains glClearColor.
+
+    glClearColor(0.50f, 0.80f, 1.0f, 1.0f);
+
+    // Projection matrix
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+
+    // 2D coordinate system
+
+    gluOrtho2D(-100, 100, -60, 100);
+
+    // Model-view matrix
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
+
+// ======================================================
+// MAIN
+// ======================================================
+
+int main(int argc, char** argv)
+{
+    // Initialize GLUT
+
+    glutInit(&argc, argv);
+
+    // Double buffering + RGB
+
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+
+    // Window size
+
+    glutInitWindowSize(1100, 700);
+
+    // Window position
+
+    glutInitWindowPosition(100, 50);
+
+    // Window title
+
+    glutCreateWindow("Forest Through The Cycle Of A Year");
+
+    // Initialize OpenGL
+
+    init();
+
+    // Display callback
+
+    glutDisplayFunc(display);
+
+    // Keyboard callback
+
+    glutKeyboardFunc(keyboard);
+
+    // Animation timer
+
+    glutTimerFunc(30, update, 0);
+
+    // Start GLUT
+
+    glutMainLoop();
+
+    return 0;
+}
