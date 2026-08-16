@@ -457,7 +457,8 @@ void drawForestBg()
 
 void drawGrass(float x, float y, float scale)
 {
-    // Grass green
+    // Grass green (slightly different shade from forest bg)
+
     glColor3ub(40, 158, 45);
 
     glBegin(GL_TRIANGLES);
