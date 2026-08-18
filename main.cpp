@@ -8,14 +8,14 @@
 // ======================================================
 // SEASONS
 // ======================================================
+#define sedlife 0
+#define SPRING 1
+#define SUMMER 2
+#define RAINY 3
+#define AUTUMN 4
+#define WINTER 5
 
-#define SPRING 0
-#define SUMMER 1
-#define RAINY 2
-#define AUTUMN 3
-#define WINTER 4
-
-int currentSeason = SPRING;
+int currentSeason = sedlife;
 bool paused = false;
 bool automaticMode = false;
 
@@ -110,6 +110,64 @@ float grassScale[GRASS_COUNT] = {
 };
 
 // ======================================================
+// SPRING - FLOWER DATA (blooming flowers on the forest
+// floor, only drawn during the SPRING season)
+// ======================================================
+
+const int FLOWER_COUNT = 22;
+
+// x position of flowers
+float flowerX[FLOWER_COUNT] = {
+    -93, -84, -73, -58, -46, -37, -25, -12,
+    -3, 10, 21, 33, 44, 55, 66, 77,
+    86, 94, -66, -20, 5, 60
+};
+
+// y position of flowers (kept low, near the ground line
+// and scattered a little deeper toward the front)
+float flowerY[FLOWER_COUNT] = {
+    -24, -32, -27, -37, -23, -41, -29, -25,
+    -44, -31, -22, -38, -26, -46, -30, -24,
+    -40, -28, -49, -33, -21, -43
+};
+
+// scale (size) of flowers
+float flowerScale[FLOWER_COUNT] = {
+    0.8, 1.0, 0.7, 0.9, 1.1, 0.8, 1.0, 0.9,
+    0.7, 1.0, 0.85, 0.95, 0.75, 1.05, 0.8, 0.9,
+    1.0, 0.7, 0.9, 1.0, 0.8, 0.95
+};
+
+// petal color of each flower (0 = pink, 1 = purple,
+// 2 = white, 3 = red-orange) - cycles through a few
+// classic spring colors
+int flowerColor[FLOWER_COUNT] = {
+    0, 1, 2, 3, 0, 1, 2, 3,
+    0, 1, 2, 3, 0, 1, 2, 3,
+    0, 1, 2, 3, 0, 1
+};
+
+// ======================================================
+// SPRING - BUTTERFLY DATA (small animated butterflies
+// that drift and flap above the ground, SPRING only)
+// ======================================================
+
+const int BUTTERFLY_COUNT = 4;
+
+// base (center) position each butterfly drifts around
+float butterflyBaseX[BUTTERFLY_COUNT] = { -45, -8, 30, 68 };
+float butterflyBaseY[BUTTERFLY_COUNT] = { -4, 6, -6, 3 };
+
+// phase offset so each butterfly flaps/drifts out of sync
+float butterflyPhase[BUTTERFLY_COUNT] = { 0.0f, 1.6f, 3.1f, 4.7f };
+
+// size of each butterfly
+float butterflyScale[BUTTERFLY_COUNT] = { 1.0f, 0.8f, 1.1f, 0.9f };
+
+// timer that drives butterfly flying + wing-flap animation
+float butterflyTime = 0.0f;
+
+// ======================================================
 // CLOUD VARIABLES
 // ======================================================
 
@@ -156,9 +214,16 @@ void circle(float x, float y, float radius)
 
 void drawSky()
 {
-    // Sky blue
+    // Sky blue (slightly fresher/brighter for spring)
 
-    glColor3ub(128, 204, 255);
+    if(currentSeason == SPRING)
+    {
+        glColor3ub(150, 217, 255);
+    }
+    else
+    {
+        glColor3ub(128, 204, 255);
+    }
 
     rectangle(-100, -20, 100, 100);
 }
@@ -169,9 +234,16 @@ void drawSky()
 
 void drawGround()
 {
-    // Green grass
+    // Green grass (brighter fresh green for spring)
 
-    glColor3ub(51, 140, 46);
+    if(currentSeason == SPRING)
+    {
+        glColor3ub(72, 168, 58);
+    }
+    else
+    {
+        glColor3ub(51, 140, 46);
+    }
 
     rectangle(-100, -60, 100, -20);
 }
@@ -318,14 +390,22 @@ void drawBranches(float x, float y, float scale)
 }
 
 // ======================================================
-// NORMAL GREEN TREE LEAVES
+// TREE LEAVES (color changes slightly for spring to give
+// a fresh, bright-green blooming look)
 // ======================================================
 
 void drawTreeLeaves(float x, float y, float scale)
 {
-    // Normal green forest color
+    // Bright fresh green in spring, normal forest green otherwise
 
-    glColor3ub(10, 122, 18);
+    if(currentSeason == SPRING)
+    {
+        glColor3ub(76, 187, 23);
+    }
+    else
+    {
+        glColor3ub(10, 122, 18);
+    }
 
     // --------------------------------------------------
     // LEFT FOLIAGE
@@ -457,7 +537,8 @@ void drawForestBg()
 
 void drawGrass(float x, float y, float scale)
 {
-    // Grass green
+    // Grass green (slightly different shade from forest bg)
+
     glColor3ub(40, 158, 45);
 
     glBegin(GL_TRIANGLES);
@@ -507,6 +588,144 @@ void drawGrassField()
     {
         drawGrass(grassX[i], grassY[i], grassScale[i]); // each tuft uses its own y position this time
     }
+}
+
+// ======================================================
+// SINGLE FLOWER (stem + center + 5 petals)
+// ======================================================
+// scale controls overall size, colorType picks the petal
+// color so the field doesn't look like one repeated flower
+
+void drawFlower(float x, float y, float scale, int colorType)
+{
+    // --------------------------------------------------
+    // STEM
+    // --------------------------------------------------
+
+    glColor3ub(46, 125, 50);
+
+    glLineWidth(2.0f);
+
+    glBegin(GL_LINES);
+    glVertex2f(x, y);
+    glVertex2f(x, y + 8 * scale);
+    glEnd();
+
+    // --------------------------------------------------
+    // PETALS (5 small circles arranged around the center)
+    // --------------------------------------------------
+
+    switch(colorType)
+    {
+        case 0: glColor3ub(255, 128, 171); break; // pink
+        case 1: glColor3ub(186, 104, 200); break; // purple
+        case 2: glColor3ub(255, 255, 255); break; // white
+        default: glColor3ub(255, 111, 74); break; // red-orange
+    }
+
+    float petalDist = 2.6f * scale;
+    float petalRadius = 1.5f * scale;
+    float centerY = y + 8 * scale;
+
+    for(int p = 0; p < 5; p++)
+    {
+        float angle = 2.0f * PI * p / 5.0f;
+        float px = x + petalDist * cos(angle);
+        float py = centerY + petalDist * sin(angle);
+
+        circle(px, py, petalRadius);
+    }
+
+    // --------------------------------------------------
+    // FLOWER CENTER
+    // --------------------------------------------------
+
+    glColor3ub(255, 235, 59);
+
+    circle(x, centerY, 1.3f * scale);
+}
+
+// ======================================================
+// COMPLETE FLOWER BED (spring only)
+// ======================================================
+
+void drawFlowers()
+{
+    for(int i = 0; i < FLOWER_COUNT; i++)
+    {
+        drawFlower(flowerX[i], flowerY[i], flowerScale[i], flowerColor[i]);
+    }
+}
+
+// ======================================================
+// SINGLE BUTTERFLY (two flapping wings + small body)
+// ======================================================
+// x, y = current position (already animated),
+// scale = size, flap = 0..1 wing-openness value
+
+void drawButterfly(float x, float y, float scale, float flap)
+{
+    float wingSpread = (0.5f + 0.5f * flap) * scale;
+
+    // --------------------------------------------------
+    // LEFT WING
+    // --------------------------------------------------
+
+    glColor3ub(255, 179, 71);
+
+    circle(x - 2.0f * scale, y + 0.5f * scale, wingSpread);
+
+    // --------------------------------------------------
+    // RIGHT WING
+    // --------------------------------------------------
+
+    glColor3ub(255, 202, 58);
+
+    circle(x + 2.0f * scale, y + 0.5f * scale, wingSpread);
+
+    // --------------------------------------------------
+    // BODY
+    // --------------------------------------------------
+
+    glColor3ub(66, 40, 14);
+
+    glLineWidth(2.0f);
+
+    glBegin(GL_LINES);
+    glVertex2f(x, y - 1.5f * scale);
+    glVertex2f(x, y + 2.5f * scale);
+    glEnd();
+}
+
+// ======================================================
+// COMPLETE BUTTERFLIES (spring only, animated)
+// ======================================================
+
+void drawButterflies()
+{
+    for(int i = 0; i < BUTTERFLY_COUNT; i++)
+    {
+        // Gentle drifting flight path around the base position
+
+        float x = butterflyBaseX[i] + 14.0f * sin(butterflyTime * 0.6f + butterflyPhase[i]);
+        float y = butterflyBaseY[i] + 5.0f * sin(butterflyTime * 1.3f + butterflyPhase[i]);
+
+        // Wings flap faster than the body drifts
+
+        float flap = 0.5f + 0.5f * fabs((float)sin(butterflyTime * 6.0f + butterflyPhase[i]));
+
+        drawButterfly(x, y, butterflyScale[i], flap);
+    }
+}
+
+// ======================================================
+// COMPLETE SPRING ENVIRONMENT (flowers + butterflies)
+// ======================================================
+
+void drawSpringEnvironment()
+{
+    drawFlowers();
+    drawButterflies();
 }
 
 // ======================================================
@@ -577,7 +796,11 @@ void display()
 
     drawGround();
 
+    // --------------------------------------------------
+    // GRASS (scattered on the plain green ground)
+    // --------------------------------------------------
 
+    drawGrassField();
 
     // --------------------------------------------------
     // FOREST BG
@@ -595,16 +818,14 @@ void display()
     // OTHER MEMBERS WILL ADD THEIR FUNCTIONS HERE
     // --------------------------------------------------
 
-        // --------------------------------------------------
-    // GRASS (scattered on the plain green ground)
-    // --------------------------------------------------
-
-    drawGrassField();
-
+    if(currentSeason == SPRING)
+    {
+        drawSpringEnvironment();
+    }
+// draw te ekta season add korlam,
     /*
         Example:
 
-        drawSpringEnvironment();
         drawSummerEnvironment();
         drawRain();
         drawAutumnLeaves();
@@ -627,6 +848,15 @@ void update(int value)
         // ----------------------------------------------
 
         updateClouds();
+
+        // ----------------------------------------------
+        // SPRING BUTTERFLY ANIMATION
+        // ----------------------------------------------
+
+        if(currentSeason == SPRING)
+        {
+            butterflyTime += 0.05f;
+        }
 
         // ----------------------------------------------
         // OTHER MEMBERS WILL ADD THEIR ANIMATION HERE
@@ -656,11 +886,16 @@ void update(int value)
 
 void keyboard(unsigned char key, int x, int y)
 {
+      if(key == '0')
+    {
+        currentSeason = sedlife;
+        automaticMode = false;
+    }
     // --------------------------------------------------
     // SPRING
     // --------------------------------------------------
 
-    if(key == '1')
+    else if(key == '1')
     {
         currentSeason = SPRING;
         automaticMode = false;
