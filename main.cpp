@@ -16,9 +16,12 @@
 // 6. Road markings and road grass follow worldMove, so they move left.
 // 7. Car/cave/black-screen transition comments were expanded to make
 //    the movement sequence explicit.
+<<<<<<< HEAD
 // 8. NEW: trees now come in 3 different styles (Round, Pine, Bushy
 //    Triangle) instead of one repeated shape, so the forest line
 //    doesn't look identical tree after tree.
+=======
+>>>>>>> a93bf201662dc043acb1d3f3770e9ac36de19b88
 // ======================================================
 
 // ======================================================
@@ -570,6 +573,7 @@ void drawTreeRound(float x, float y, float scale)
     drawTreeTrunk(x, y, scale);
     drawBranches(x, y, scale);
     drawTreeLeaves(x, y, scale);
+
 }
 
 // ======================================================
@@ -747,7 +751,11 @@ void drawForest()
         if(x < -110)
             x += 220;
 
+<<<<<<< HEAD
         drawTree(x, treeY[i], treeScale[i], treeType[i]);
+=======
+        drawTree(x, treeY[i], treeScale[i]);
+>>>>>>> a93bf201662dc043acb1d3f3770e9ac36de19b88
     }
 }
 
@@ -1166,6 +1174,7 @@ void drawRoad()
 
 void drawCar(float x, float y)
 {
+<<<<<<< HEAD
     // NEW: the car now has a clear FRONT (right side - hood,
     // bumper, headlight) and BACK (left side - flat trunk,
     // taillight). The world scrolls left, which means the car
@@ -1184,10 +1193,18 @@ void drawCar(float x, float y)
     // the hood - that's the front, in the direction of travel.
     // --------------------------------------------------
 
+=======
+    // Larger car body
+    glColor3ub(200, 30, 30);
+    rectangle(x - 11, y, x + 11, y + 7);
+
+    // Car top
+>>>>>>> a93bf201662dc043acb1d3f3770e9ac36de19b88
     glColor3ub(180, 20, 20);
 
     glBegin(GL_QUADS);
 
+<<<<<<< HEAD
     glVertex2f(x - 6, y + 7);   // rear-bottom  (back of car)
     glVertex2f(x - 5, y + 13);  // rear-top     (upright rear window)
     glVertex2f(x + 2, y + 13);  // front-top    (roof ends before windshield)
@@ -1238,6 +1255,20 @@ void drawCar(float x, float y)
 
     glColor3ub(255, 70, 40);
     rectangle(x - 12.5f, y + 1.5f, x - 10.5f, y + 4.5f);
+=======
+    glVertex2f(x - 7, y + 7);
+    glVertex2f(x - 3, y + 13);
+    glVertex2f(x + 5, y + 13);
+    glVertex2f(x + 9, y + 7);
+
+    glEnd();
+
+    // Windows
+    glColor3ub(120, 200, 230);
+
+    rectangle(x - 2.5f, y + 7.5f,
+              x + 2.5f, y + 11.0f);
+>>>>>>> a93bf201662dc043acb1d3f3770e9ac36de19b88
 
     // Wheels
     glColor3ub(20, 20, 20);
