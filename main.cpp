@@ -21,6 +21,12 @@
 //    doesn't look identical tree after tree.
 // 9. FIXED: Bushy Triangle tree canopy no longer has a hollow gap
 //    in the middle - see the comment above drawBushyTriangleLeaves().
+// 10. NEW: Each tree type now has its OWN trunk function instead of
+//     sharing one drawTreeTrunk(). Round tree ("apple tree" base,
+//     no apples yet) uses an average trunk width, Pine tree uses a
+//     wider trunk, and Bushy tree uses a thinner trunk. Pine leaf
+//     colors were also darkened so pine reads as visually distinct
+//     from the round and bushy trees.
 // ======================================================
 
 // ======================================================
@@ -94,15 +100,15 @@ float seasonScreenTimer = 0.0f;
 const int TREE_COUNT = 28;
 //x positon of trees
 float treeX[TREE_COUNT] = {
-    -98, -92, -78, -64, -50, -35, -18, 0,
-    18, 35, 52, 72, 80, 92,
+    113,-98, -92, -78, -64, -50, -35, -18, 0,
+    18, 35, 52, 72, 80, 92
     //-98, -92, -78, -64, -50, -35, -18, 0,//more trees
     //18, 35, 52, 72, 90, 92
 };
 // basically size of trees
 float treeScale[TREE_COUNT] = {
-    0.65, 0.85, 0.70, 1.00, 0.75, 0.90, 1.10,
-    0.75, 0.95, 0.70, 1.05, 0.80, 1.05, 0.80,
+    0.6,0.65, 0.85, 0.70, 1.00, 0.75, 0.90, 1.10,
+    0.75, 0.95, 0.70, 1.05, 0.80, 1.05, 0.80
 
     //0.4,0.3,0.3,0.2,0.3,0.4,0.4,0.6,0.4,0.3,0.2,0.4,0.5,0.3//more small size trees
 };
@@ -110,7 +116,7 @@ float treeScale[TREE_COUNT] = {
 
 //y position of trees
 float treeY[TREE_COUNT] = {
-    -20, -25, -20, -23, -21, -26, -22,
+    -24,-20, -25, -20, -23, -21, -26, -22,
     -22, -23, -24, -21, -20, -24, -22
 
     //,-35, -45, -50, -63, -41, -46, -62,.//more tress y position
@@ -124,7 +130,7 @@ float treeY[TREE_COUNT] = {
 // Cycled 0,1,2,0,1,2... across the array so the tree line
 // alternates styles instead of repeating the same shape.
 int treeType[TREE_COUNT] = {
-    0, 1, 2, 0, 1, 2, 0,
+    2,0, 1, 2, 0, 1, 2, 0,
     1, 2, 0, 1, 2, 0, 1
 
     // pattern keeps repeating 0,1,2 for any additional
@@ -136,14 +142,14 @@ int treeType[TREE_COUNT] = {
 // tree line, used as background filler near the trees)
 // ======================================================
 
-const int FOREST_BG_COUNT = 30;
+const int FOREST_BG_COUNT = 32;
 
 // x position of forest bg tufts
 float forestBgX[FOREST_BG_COUNT] = {
     -95, -88, -80, -72, -64, -56, -48, -40,
     -32, -24, -16, -8, 0, 8, 16, 24,
     32, 40, 48, 56, 64, 72, 80, 88,
-    95, -60, -20, 20, 60, 90
+    95, -60, -20, 20, 60, 90,100,120
 };
 
 // scale (size) of forest bg tufts
@@ -151,7 +157,7 @@ float forestBgScale[FOREST_BG_COUNT] = {
     0.8, 1.0, 0.7, 0.9, 1.1, 0.8, 0.6, 1.0,
     0.9, 0.7, 1.0, 0.8, 0.9, 1.1, 0.7, 0.8,
     1.0, 0.6, 0.9, 0.8, 1.0, 0.7, 0.9, 0.8,
-    1.1, 0.7, 0.9, 0.8, 1.0, 0.6
+    1.1, 0.7, 0.9, 0.8, 1.0, 0.6,0.6,0.7
 };
 
 // ======================================================
@@ -420,10 +426,18 @@ void drawClouds()
 }
 
 // ======================================================
-// TREE TRUNK (shared by all 3 tree types)
+// TREE TRUNKS
+// Each tree type now has its own trunk function instead
+// of sharing one drawTreeTrunk(), so trunk width can
+// differ per style:
+//   - Round tree ("apple tree" base): average trunk width
+//   - Pine tree: wider trunk
+//   - Bushy tree: thinner trunk
 // ======================================================
 
-void drawTreeTrunk(float x, float y, float scale)
+// ROUND TREE TRUNK — average width (same proportions as
+// the original shared trunk)
+void drawRoundTreeTrunk(float x, float y, float scale)
 {
     // Brown trunk
 
@@ -432,20 +446,65 @@ void drawTreeTrunk(float x, float y, float scale)
     glBegin(GL_QUADS);
 
     // Bottom-left
-
     glVertex2f(x - 3 * scale, y);
 
     // Bottom-right
-
     glVertex2f(x + 3 * scale, y);
 
     // Top-right
-
     glVertex2f(x + 2 * scale, y + 50 * scale);
 
     // Top-left
-
     glVertex2f(x - 2 * scale, y + 50 * scale);
+
+    glEnd();
+}
+
+// PINE TREE TRUNK — wider than the round tree's trunk,
+// and taller so the whole pine tree stands higher
+void drawPineTreeTrunk(float x, float y, float scale)
+{
+    // Brown trunk
+
+    glColor3ub(89, 46, 18);
+
+    glBegin(GL_QUADS);
+
+    // Bottom-left
+    glVertex2f(x - 5 * scale, y);
+
+    // Bottom-right
+    glVertex2f(x + 5 * scale, y);
+
+    // Top-right
+    glVertex2f(x + 3.5f * scale, y + 62 * scale);
+
+    // Top-left
+    glVertex2f(x - 3.5f * scale, y + 62 * scale);
+
+    glEnd();
+}
+
+// BUSHY TREE TRUNK — thinner than the round tree's trunk
+void drawBushyTreeTrunk(float x, float y, float scale)
+{
+    // Brown trunk
+
+    glColor3ub(89, 46, 18);
+
+    glBegin(GL_QUADS);
+
+    // Bottom-left
+    glVertex2f(x - 2 * scale, y);
+
+    // Bottom-right
+    glVertex2f(x + 2 * scale, y);
+
+    // Top-right
+    glVertex2f(x + 1.5f * scale, y + 50 * scale);
+
+    // Top-left
+    glVertex2f(x - 1.5f * scale, y + 50 * scale);
 
     glEnd();
 }
@@ -505,6 +564,8 @@ void drawBranches(float x, float y, float scale)
 
 // ======================================================
 // TREE TYPE 1: ROUND TREE LEAVES (circle clusters)
+// This is the "apple tree" base shape - no apples added
+// yet, just the round leaf canopy for now.
 // Color changes slightly for spring to give a fresh,
 // bright-green blooming look.
 // ======================================================
@@ -554,13 +615,13 @@ void drawTreeLeaves(float x, float y, float scale)
 }
 
 // ======================================================
-// COMPLETE TREE TYPE 1: ROUND TREE
-// (trunk + branches + circle leaves - the original tree)
+// COMPLETE TREE TYPE 1: ROUND TREE ("apple tree" base)
+// average-width trunk + branches + circle leaves
 // ======================================================
 
 void drawTreeRound(float x, float y, float scale)
 {
-    drawTreeTrunk(x, y, scale);
+    drawRoundTreeTrunk(x, y, scale);
     drawBranches(x, y, scale);
     drawTreeLeaves(x, y, scale);
 }
@@ -568,19 +629,22 @@ void drawTreeRound(float x, float y, float scale)
 // ======================================================
 // TREE TYPE 2: PINE TREE LEAVES (3 stacked triangles,
 // classic conical fir/pine look, no branch lines)
+// Colors pulled darker than the original version so the
+// pine tree reads as visually distinct/deeper green
+// compared to the round and bushy trees.
 // ======================================================
 
 void drawPineLeaves(float x, float y, float scale)
 {
-    // Deeper, slightly cooler green for pine, brighter in spring
+    // Deeper, darker green for pine, still a bit brighter in spring
 
     if(currentSeason == SPRING)
     {
-        glColor3ub(85, 170, 60);
+        glColor3ub(55, 130, 45);
     }
     else
     {
-        glColor3ub(20, 100, 40);
+        glColor3ub(12, 70, 28);
     }
 
     // --------------------------------------------------
@@ -588,9 +652,9 @@ void drawPineLeaves(float x, float y, float scale)
     // --------------------------------------------------
 
     triangleShape(
-        x - 16 * scale, y + 20 * scale,
-        x + 16 * scale, y + 20 * scale,
-        x,              y + 38 * scale
+        x - 16 * scale, y + 28 * scale,
+        x + 16 * scale, y + 28 * scale,
+        x,              y + 48 * scale
     );
 
     // --------------------------------------------------
@@ -598,9 +662,9 @@ void drawPineLeaves(float x, float y, float scale)
     // --------------------------------------------------
 
     triangleShape(
-        x - 13 * scale, y + 32 * scale,
-        x + 13 * scale, y + 32 * scale,
-        x,               y + 48 * scale
+        x - 13 * scale, y + 41 * scale,
+        x + 13 * scale, y + 41 * scale,
+        x,               y + 60 * scale
     );
 
     // --------------------------------------------------
@@ -608,20 +672,20 @@ void drawPineLeaves(float x, float y, float scale)
     // --------------------------------------------------
 
     triangleShape(
-        x - 9 * scale, y + 43 * scale,
-        x + 9 * scale, y + 43 * scale,
-        x,              y + 58 * scale
+        x - 9 * scale, y + 54 * scale,
+        x + 9 * scale, y + 54 * scale,
+        x,              y + 72 * scale
     );
 }
 
 // ======================================================
 // COMPLETE TREE TYPE 2: PINE TREE
-// (trunk + stacked triangle cone, no branches)
+// wider trunk + stacked triangle cone, no branches
 // ======================================================
 
 void drawTreePine(float x, float y, float scale)
 {
-    drawTreeTrunk(x, y, scale);
+    drawPineTreeTrunk(x, y, scale);
     drawPineLeaves(x, y, scale);
 }
 
@@ -717,12 +781,12 @@ void drawBushyTriangleLeaves(float x, float y, float scale)
 
 // ======================================================
 // COMPLETE TREE TYPE 3: BUSHY TRIANGLE TREE
-// (trunk + branches + triangle leaf clusters)
+// thinner trunk + branches + triangle leaf clusters
 // ======================================================
 
 void drawTreeBushy(float x, float y, float scale)
 {
-    drawTreeTrunk(x, y, scale);
+    drawBushyTreeTrunk(x, y, scale);
     drawBranches(x, y, scale);
     drawBushyTriangleLeaves(x, y, scale);
 }
