@@ -16,9 +16,11 @@
 // 6. Road markings and road grass follow worldMove, so they move left.
 // 7. Car/cave/black-screen transition comments were expanded to make
 //    the movement sequence explicit.
-// 8. NEW: trees now come in 3 different styles (Round, Pine, Bushy
+// 8. Trees now come in 3 different styles (Round, Pine, Bushy
 //    Triangle) instead of one repeated shape, so the forest line
 //    doesn't look identical tree after tree.
+// 9. FIXED: Bushy Triangle tree canopy no longer has a hollow gap
+//    in the middle - see the comment above drawBushyTriangleLeaves().
 // ======================================================
 
 // ======================================================
@@ -115,7 +117,7 @@ float treeY[TREE_COUNT] = {
    // -62, -63, -64, -61, -50, -24, -52,
 };
 
-// NEW: which of the 3 tree styles each tree uses.
+// which of the 3 tree styles each tree uses.
 // 0 = Round Tree (circle leaves)
 // 1 = Pine Tree (stacked triangle cone)
 // 2 = Bushy Triangle Tree (triangle leaf clusters)
@@ -194,12 +196,11 @@ float grassScale[GRASS_COUNT] = {
 // floor, only drawn during the SPRING season)
 // ======================================================
 
-// NEW: increased spring flower count. All flower Y positions stay above the road
+// All flower Y positions stay above the road
 // so flowers can never be drawn on the road surface.
 const int FLOWER_COUNT = 34;
 
 // x position of flowers
-// NEW: more flower positions, distributed across the grass/forest floor.
 float flowerX[FLOWER_COUNT] = {
     -96, -90, -84, -77, -70, -63, -56, -49,
     -42, -35, -28, -21, -14, -7, 0, 7,
@@ -210,7 +211,7 @@ float flowerX[FLOWER_COUNT] = {
 
 // y position of flowers (kept low, near the ground line
 // and scattered a little deeper toward the front)
-// NEW: every flower base is >= -38. Since the road begins at -40,
+// Every flower base is >= -38. Since the road begins at -40,
 // the flowers remain entirely on the green ground and never on the road.
 float flowerY[FLOWER_COUNT] = {
     -24, -30, -27, -34, -23, -31, -29, -25,
@@ -221,7 +222,6 @@ float flowerY[FLOWER_COUNT] = {
 };
 
 // scale (size) of flowers
-// NEW: varied sizes keep the larger flower bed from looking repetitive.
 float flowerScale[FLOWER_COUNT] = {
     0.65, 0.85, 0.70, 0.80, 0.95, 0.75, 0.90, 0.70,
     0.85, 0.75, 0.95, 0.80, 0.65, 0.90, 0.75, 0.85,
@@ -233,7 +233,6 @@ float flowerScale[FLOWER_COUNT] = {
 // petal color of each flower (0 = pink, 1 = purple,
 // 2 = white, 3 = red-orange) - cycles through a few
 // classic spring colors
-// NEW: continue cycling through the existing spring flower colors.
 int flowerColor[FLOWER_COUNT] = {
     0, 1, 2, 3, 0, 1, 2, 3,
     0, 1, 2, 3, 0, 1, 2, 3,
@@ -247,11 +246,9 @@ int flowerColor[FLOWER_COUNT] = {
 // that drift and flap above the ground, SPRING only)
 // ======================================================
 
-// NEW: doubled the number of butterflies for a fuller spring scene.
 const int BUTTERFLY_COUNT = 8;
 
 // base (center) position each butterfly drifts around
-// NEW: four additional butterflies with different starting positions.
 float butterflyBaseX[BUTTERFLY_COUNT] = {
     -78, -45, -18, 8, 30, 52, 72, 92
 };
@@ -316,8 +313,6 @@ void circle(float x, float y, float radius)
 // ======================================================
 // BASIC TRIANGLE FUNCTION
 // ======================================================
-// NEW: simple 3-point triangle helper, same style as
-// rectangle()/circle() above, used by the new tree types.
 
 void triangleShape(float x1, float y1, float x2, float y2, float x3, float y3)
 {
@@ -427,8 +422,6 @@ void drawClouds()
 // ======================================================
 // TREE TRUNK (shared by all 3 tree types)
 // ======================================================
-//basically were setting a default tree structure , pore icha moto place e amra tree ke positioning koraitesi
-//tree er position amra line 28 thika korsi, eikhane just tree fucntion ta add korsi, reason is (different season e specific element edit korbo just)
 
 void drawTreeTrunk(float x, float y, float scale)
 {
@@ -649,50 +642,77 @@ void leafTriangle(float cx, float cy, float size)
 
 // ======================================================
 // TREE TYPE 3: BUSHY TRIANGLE TREE LEAVES
-// Same 5-cluster layout idea as the Round Tree, but built
-// from angular triangles instead of circles.
+//
+// FIX: the previous version placed 5 tall, narrow-apex
+// triangles far apart (left/top/right/lower-left/lower-
+// right). Because a triangle tapers to a single POINT at
+// its apex, two clusters whose y-ranges overlapped often
+// still had almost no actual overlapping AREA near the
+// top - that's what showed up as a hollow gap in the
+// middle of the canopy. The clusters also sat noticeably
+// higher above the trunk than the other two tree types,
+// which read as "floating"/oddly positioned foliage.
+//
+// FIX APPLIED:
+//  - Pulled every cluster down so the canopy starts right
+//    at the trunk top (~y+42-50*scale), matching the Round
+//    Tree's proportions.
+//  - Enlarged each triangle so neighboring clusters overlap
+//    at their wide BASE instead of their narrow tip.
+//  - Added a CENTER cluster between left/right/top that
+//    plugs the hole that used to sit in the middle.
 // ======================================================
 
 void drawBushyTriangleLeaves(float x, float y, float scale)
 {
+    // Olive / yellow-green hue keeps this tree visually distinct
+    // from the Round Tree's forest green.
+
     if(currentSeason == SPRING)
     {
-        glColor3ub(96, 200, 40);
+        glColor3ub(173, 209, 60);
     }
     else
     {
-        glColor3ub(15, 130, 20);
+        glColor3ub(107, 142, 35);
     }
 
     // --------------------------------------------------
-    // LEFT CLUSTER
+    // LOWER LEFT CLUSTER (anchors the canopy to the trunk)
     // --------------------------------------------------
 
-    leafTriangle(x - 15 * scale, y + 48 * scale, 14 * scale);
-
-    // --------------------------------------------------
-    // TOP CLUSTER
-    // --------------------------------------------------
-
-    leafTriangle(x, y + 60 * scale, 17 * scale);
-
-    // --------------------------------------------------
-    // RIGHT CLUSTER
-    // --------------------------------------------------
-
-    leafTriangle(x + 15 * scale, y + 48 * scale, 14 * scale);
-
-    // --------------------------------------------------
-    // LOWER LEFT CLUSTER
-    // --------------------------------------------------
-
-    leafTriangle(x - 7 * scale, y + 40 * scale, 12 * scale);
+    leafTriangle(x - 9 * scale, y + 42 * scale, 15 * scale);
 
     // --------------------------------------------------
     // LOWER RIGHT CLUSTER
     // --------------------------------------------------
 
-    leafTriangle(x + 8 * scale, y + 40 * scale, 12 * scale);
+    leafTriangle(x + 9 * scale, y + 42 * scale, 15 * scale);
+
+    // --------------------------------------------------
+    // CENTER CLUSTER - bridges left/right/top and removes
+    // the hollow that used to appear in the middle.
+    // --------------------------------------------------
+
+    leafTriangle(x, y + 48 * scale, 16 * scale);
+
+    // --------------------------------------------------
+    // LEFT CLUSTER
+    // --------------------------------------------------
+
+    leafTriangle(x - 15 * scale, y + 50 * scale, 15 * scale);
+
+    // --------------------------------------------------
+    // RIGHT CLUSTER
+    // --------------------------------------------------
+
+    leafTriangle(x + 15 * scale, y + 50 * scale, 15 * scale);
+
+    // --------------------------------------------------
+    // TOP CLUSTER
+    // --------------------------------------------------
+
+    leafTriangle(x, y + 62 * scale, 18 * scale);
 }
 
 // ======================================================
@@ -754,8 +774,6 @@ void drawForest()
 // ======================================================
 // SINGLE FOREST BG TUFT (4 TRIANGLES, STRAIGHT BOTTOM)
 // ======================================================
-// same idea as the tree, scale controls size, base (bottom)
-// of every triangle is a flat horizontal line sitting on the ground
 
 void drawForestBgGrass(float x, float y, float scale)
 {
@@ -874,10 +892,6 @@ void drawGrass(float x, float y, float scale)
 
 // ======================================================
 // COMPLETE GRASS FIELD (scattered over the ground)
-// This is the DEFAULT-season ground detail. It now scrolls
-// together with the forest/road using the shared worldMove
-// offset instead of its own separate movement variable, and
-// wraps around the screen the same way trees do.
 // ======================================================
 
 void drawGrassField()
@@ -899,8 +913,6 @@ void drawGrassField()
 // ======================================================
 // SINGLE FLOWER (stem + center + 5 petals)
 // ======================================================
-// scale controls overall size, colorType picks the petal
-// color so the field doesn't look like one repeated flower
 
 void drawFlower(float x, float y, float scale, int colorType)
 {
@@ -953,8 +965,6 @@ void drawFlower(float x, float y, float scale, int colorType)
 
 // ======================================================
 // COMPLETE FLOWER BED (spring only)
-// Now scrolls with worldMove, exactly like the forest and
-// the default-season grass field, and wraps the same way.
 // ======================================================
 
 void drawFlowers()
@@ -976,8 +986,6 @@ void drawFlowers()
 // ======================================================
 // SINGLE BUTTERFLY (two flapping wings + small body)
 // ======================================================
-// x, y = current position (already animated),
-// scale = size, flap = 0..1 wing-openness value
 
 void drawButterfly(float x, float y, float scale, float flap)
 {
@@ -1015,10 +1023,6 @@ void drawButterfly(float x, float y, float scale, float flap)
 
 // ======================================================
 // COMPLETE BUTTERFLIES (spring only, animated)
-// Base position now scrolls with worldMove too, so the
-// butterflies stay anchored to the moving landscape instead
-// of drifting independently of the trees/flowers, and wraps
-// around the screen just like everything else.
 // ======================================================
 
 void drawButterflies()
@@ -1048,8 +1052,6 @@ void drawButterflies()
 
 // ======================================================
 // COMPLETE SPRING ENVIRONMENT (flowers + butterflies)
-// Both pieces share the same worldMove offset as the
-// forest, so the whole spring scene scrolls together.
 // ======================================================
 
 void drawSpringEnvironment()
@@ -1095,11 +1097,8 @@ void updateClouds()
 
 
 // ======================================================
-// NEW: SMALL ROAD-SIDE GRASS
+// SMALL ROAD-SIDE GRASS
 // ======================================================
-// A few tiny grass tufts are allowed on the road, but they are
-// intentionally much smaller than the normal field grass.
-// They use worldMove so they travel with the road markings.
 
 const int ROAD_GRASS_COUNT = 6;
 
@@ -1117,7 +1116,7 @@ float roadGrassScale[ROAD_GRASS_COUNT] = {
 
 void drawRoadGrass()
 {
-    // NEW: draw only a few small tufts on the road.
+    // Draw only a few small tufts on the road.
     for(int i = 0; i < ROAD_GRASS_COUNT; i++)
     {
         float x = roadGrassX[i] + worldMove;
@@ -1166,22 +1165,12 @@ void drawRoad()
 
 void drawCar(float x, float y)
 {
-    // NEW: the car now has a clear FRONT (right side - hood,
-    // bumper, headlight) and BACK (left side - flat trunk,
-    // taillight). The world scrolls left, which means the car
-    // is effectively travelling to the RIGHT, so the nose must
-    // point right - that's what was missing before and made the
-    // car look backward/direction-less.
-
     // Main body (chassis)
     glColor3ub(200, 30, 30);
     rectangle(x - 11, y, x + 11, y + 7);
 
     // --------------------------------------------------
     // CABIN / ROOF
-    // Rear window (left) stands nearly upright - that's the
-    // back of the car. Windshield (right) leans forward into
-    // the hood - that's the front, in the direction of travel.
     // --------------------------------------------------
 
     glColor3ub(180, 20, 20);
@@ -1211,8 +1200,7 @@ void drawCar(float x, float y)
     glEnd();
 
     // --------------------------------------------------
-    // WINDOWS (with a center divider so front/back windows
-    // read separately, matching the front/back roofline)
+    // WINDOWS
     // --------------------------------------------------
 
     glColor3ub(120, 200, 230);
@@ -1230,7 +1218,6 @@ void drawCar(float x, float y)
 
     // --------------------------------------------------
     // HEADLIGHT (front / right) and TAILLIGHT (back / left)
-    // These make the direction unmistakable at a glance.
     // --------------------------------------------------
 
     glColor3ub(255, 250, 200);
@@ -1361,17 +1348,10 @@ void updateWorld()
 {
     if(transitionStage == 0)
     {
-        // The car stays fixed while the world moves left, creating
-        // the visual effect that the car is driving forward.
         worldMove -= worldSpeed;
 
         if(worldMove < -220)
             worldMove += 220;
-
-        // Forest, road, grass field and spring environment
-        // all read worldMove directly inside their own draw
-        // functions now, so nothing extra needs to be synced
-        // here anymore.
     }
 }
 
@@ -1384,9 +1364,6 @@ void updateSeasonTransition()
     if(!changingSeason)
         return;
 
-    // CAR + CAVE MOVEMENT:
-    // 1. Tunnel is on the right, background is stopped, and the car
-    //    moves right toward the cave entrance.
     if(transitionStage == 1)
     {
         transitionCarX += transitionCarSpeed;
@@ -1395,8 +1372,6 @@ void updateSeasonTransition()
             transitionStage = 2;
     }
 
-    // 2. Car reaches the cave entrance and enters it.
-    //    The cave disappears behind the black transition screen.
     else if(transitionStage == 2)
     {
         carInsideTunnel = true;
@@ -1404,13 +1379,8 @@ void updateSeasonTransition()
         seasonScreenTimer = 0.0f;
     }
 
-    // 3. BLACK SCREEN:
-    //    The entire window is intentionally covered in black while
-    //    the season changes. The season name is drawn above it.
     else if(transitionStage == 3)
     {
-        // NEW: this timer controls the short black season card.
-        // At a 30 ms update interval, 1.0f is roughly 0.6 seconds.
         seasonScreenTimer += 0.05f;
 
         if(seasonScreenTimer >= 1.0f)
@@ -1419,20 +1389,16 @@ void updateSeasonTransition()
 
             carInsideTunnel = false;
 
-            // Put the tunnel at the far left.
             tunnelOnRight = false;
             tunnelOnLeft = true;
             movingTunnelX = -90.0f;
 
-            // Car begins inside it.
             transitionCarX = movingTunnelX + 12.0f;
 
             transitionStage = 4;
         }
     }
 
-    // 4. Car comes out of the LEFT cave after the black screen.
-    //    The background is still stopped until the car reaches center.
     else if(transitionStage == 4)
     {
         transitionCarX += transitionCarSpeed;
@@ -1441,18 +1407,12 @@ void updateSeasonTransition()
         {
             transitionCarX = carX;
 
-            // Car reached center:
-            // NOW the whole forest/background starts moving.
             transitionStage = 5;
 
             worldMove = 0.0f;
         }
     }
 
-    // 5. NORMAL TRAVEL RESUMES:
-    //    Forest + road markings + grass + flowers + butterflies
-    //    move together through worldMove. The car stays centered.
-    //    The cave independently continues moving left and exits.
     else if(transitionStage == 5)
     {
         worldMove -= worldSpeed;
@@ -1462,15 +1422,12 @@ void updateSeasonTransition()
 
         movingTunnelX -= tunnelExitSpeed;
 
-        // Car stays fixed at center.
         transitionCarX = carX;
 
-        // Tunnel leaves the window and does not wrap.
         if(movingTunnelX < -120.0f)
             transitionStage = 6;
     }
 
-    // 6. Tunnel is completely outside.
     else if(transitionStage == 6)
     {
         tunnelVisible = false;
@@ -1493,108 +1450,39 @@ void display()
     glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
 
-    // --------------------------------------------------
-    // SKY
-    // --------------------------------------------------
-
     drawSky();
-
-    // --------------------------------------------------
-    // SUN
-    // --------------------------------------------------
-
     drawSun();
-
-    // --------------------------------------------------
-    // CLOUDS
-    // --------------------------------------------------
-
     drawClouds();
-
-    // --------------------------------------------------
-    // GROUND
-    // --------------------------------------------------
-
     drawGround();
-
-    // --------------------------------------------------
-    // ROAD
-    // --------------------------------------------------
-
     drawRoad();
-
-    // NEW: only tiny grass is drawn on the road.
-    // Flowers are deliberately NOT drawn here.
     drawRoadGrass();
-
-    // --------------------------------------------------
-    // GROUND DETAILS (season-specific, using the existing
-    // grass/flower functions, all scrolling via worldMove)
-    // --------------------------------------------------
 
     if(currentSeason == sedlife)
     {
         drawGrassField();
     }
 
-    // --------------------------------------------------
-    // FOREST BACKGROUND
-    // --------------------------------------------------
-
     drawForestBg();
-
-    // --------------------------------------------------
-    // FOREST
-    // --------------------------------------------------
-
     drawForest();
-
-    // --------------------------------------------------
-    // SPRING ELEMENTS
-    // --------------------------------------------------
 
     if(currentSeason == SPRING)
     {
         drawSpringEnvironment();
     }
 
-    // --------------------------------------------------
-    // TUNNEL
-    // Only appears during a season transition
-    // --------------------------------------------------
-
     if(tunnelVisible && transitionStage != 3)
     {
         drawCave();
     }
 
-    // --------------------------------------------------
-    // CAR
-    // Fixed during normal mode.
-    // Moves only during tunnel transition.
-    // --------------------------------------------------
-
     if(changingSeason)
     {
-        if(transitionStage == 1 ||
-           transitionStage == 2 ||
-           transitionStage == 3)
-        {
-            drawCar(transitionCarX, carY);
-        }
-        else
-        {
-            drawCar(transitionCarX, carY);
-        }
+        drawCar(transitionCarX, carY);
     }
     else
     {
         drawCar(carX, carY);
     }
-
-    // --------------------------------------------------
-    // BLACK SEASON SCREEN
-    // --------------------------------------------------
 
     drawTunnelDarkness();
 
@@ -1609,40 +1497,19 @@ void update(int value)
 {
     if(!paused)
     {
-        // ----------------------------------------------
-        // BACKGROUND MOVEMENT
-        // Stops automatically during tunnel transition.
-        // ----------------------------------------------
-
         updateWorld();
-
-        // ----------------------------------------------
-        // WHEEL ROTATION
-        // ----------------------------------------------
 
         wheelRotation -= 15.0f;
 
         if(wheelRotation < 0)
             wheelRotation += 360.0f;
 
-        // ----------------------------------------------
-        // TUNNEL / SEASON TRANSITION
-        // ----------------------------------------------
-
         if(changingSeason)
         {
             updateSeasonTransition();
         }
 
-        // ----------------------------------------------
-        // CLOUDS
-        // ----------------------------------------------
-
         updateClouds();
-
-        // ----------------------------------------------
-        // SPRING BUTTERFLIES
-        // ----------------------------------------------
 
         if(currentSeason == SPRING)
         {
@@ -1661,10 +1528,6 @@ void update(int value)
 
 void keyboard(unsigned char key, int x, int y)
 {
-    // --------------------------------------------------
-    // DEFAULT SEASON
-    // --------------------------------------------------
-
     if(key == '0')
     {
         if(currentSeason != sedlife && !changingSeason)
@@ -1683,15 +1546,9 @@ void keyboard(unsigned char key, int x, int y)
 
             carInsideTunnel = false;
 
-            // Car begins at the center and moves toward
-            // the tunnel during the transition.
             transitionCarX = carX;
         }
     }
-
-    // --------------------------------------------------
-    // SPRING
-    // --------------------------------------------------
 
     else if(key == '1')
     {
@@ -1715,18 +1572,10 @@ void keyboard(unsigned char key, int x, int y)
         }
     }
 
-    // --------------------------------------------------
-    // PAUSE
-    // --------------------------------------------------
-
     else if(key == ' ')
     {
         paused = !paused;
     }
-
-    // --------------------------------------------------
-    // ESCAPE
-    // --------------------------------------------------
 
     else if(key == 27)
     {
@@ -1742,22 +1591,12 @@ void keyboard(unsigned char key, int x, int y)
 
 void init()
 {
-    // NOTE:
-    // glClearColor uses FLOAT values,
-    // so it remains glClearColor.
-
     glClearColor(0.50f, 0.80f, 1.0f, 1.0f);
-
-    // Projection matrix
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
 
-    // 2D coordinate system
-
     gluOrtho2D(-100, 100, -60, 100);
-
-    // Model-view matrix
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -1769,43 +1608,23 @@ void init()
 
 int main(int argc, char** argv)
 {
-    // Initialize GLUT
-
     glutInit(&argc, argv);
-
-    // Double buffering + RGB
 
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
 
-    // Window size
-
     glutInitWindowSize(1100, 700);
-
-    // Window position
 
     glutInitWindowPosition(100, 50);
 
-    // Window title
-
     glutCreateWindow("Forest Through The Cycle Of A Year");
-
-    // Initialize OpenGL
 
     init();
 
-    // Display callback
-
     glutDisplayFunc(display);
-
-    // Keyboard callback
 
     glutKeyboardFunc(keyboard);
 
-    // Animation timer
-
     glutTimerFunc(16, update, 0);
-
-    // Start GLUT
 
     glutMainLoop();
 
