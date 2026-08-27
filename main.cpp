@@ -21,7 +21,9 @@
 //    doesn't look identical tree after tree.
 // 9. FIXED: Bushy Triangle tree canopy no longer has a hollow gap
 //    in the middle - see the comment above drawBushyTriangleLeaves().
-// 10. NEW: Each tree type now has its OWN trunk function instead of
+// 10. NEW: Winter mode added with snowfall, snowy mountains, bare branches,
+//     snow-covered ground, no sun, and no green roadside grass.
+// 11. Each tree type now has its OWN trunk function instead of
 //     sharing one drawTreeTrunk(). Round tree ("apple tree" base,
 //     no apples yet) uses an average trunk width, Pine tree uses a
 //     wider trunk, and Bushy tree uses a thinner trunk. Pine leaf
@@ -283,6 +285,25 @@ float cloud1X = -80;
 float cloud2X = -10;
 float cloud3X = 60;
 
+
+// ======================================================
+// WINTER SNOW DATA
+// ======================================================
+const int SNOW_COUNT = 140;
+float snowX[SNOW_COUNT];
+float snowY[SNOW_COUNT];
+float snowSpeed[SNOW_COUNT];
+
+void initSnow()
+{
+    for(int i = 0; i < SNOW_COUNT; i++)
+    {
+        snowX[i] = -100.0f + (float)(rand() % 201);
+        snowY[i] = -60.0f + (float)(rand() % 161);
+        snowSpeed[i] = 0.20f + (float)(rand() % 30) / 100.0f;
+    }
+}
+
 // ======================================================
 // BASIC RECTANGLE FUNCTION
 // ======================================================
@@ -333,13 +354,153 @@ void triangleShape(float x1, float y1, float x2, float y2, float x3, float y3)
 // SKY
 // ======================================================
 
+
+// ======================================================
+// WINTER SNOWFALL
+// ======================================================
+void drawSnow()
+{
+    if(currentSeason != WINTER) return;
+
+    glColor3ub(255, 255, 255);
+    for(int i = 0; i < SNOW_COUNT; i++)
+    {
+        circle(snowX[i], snowY[i], 0.35f + (i % 4) * 0.16f);
+    }
+}
+
+void updateSnow()
+{
+    if(currentSeason != WINTER) return;
+
+    for(int i = 0; i < SNOW_COUNT; i++)
+    {
+        snowY[i] -= snowSpeed[i];
+        snowX[i] -= 0.03f;
+
+        if(snowY[i] < -60)
+        {
+            snowY[i] = 100;
+            snowX[i] = -100.0f + (float)(rand() % 201);
+        }
+
+        if(snowX[i] < -105) snowX[i] = 105;
+    }
+}
+
+// ======================================================
+// WINTER SCENERY
+// ======================================================
+// ================================================================================================================================================================the mountain function
+void drawWinterMountains()
+{
+    if(currentSeason != WINTER) return;
+
+    glColor3ub(205, 220, 238);
+    triangleShape(-100, -20, -58, -20, -80, 28);
+    triangleShape(-70, -20, -22, -20, -46, 36);
+    triangleShape(-35, -20, 15, -20, -10, 25);
+    triangleShape(5, -20, 55, -20, 30, 34);
+    triangleShape(45, -20, 100, -20, 74, 27);
+
+    glColor3ub(242, 247, 252);
+    triangleShape(-58, 5, -46, 36, -34, 5);
+    triangleShape(-22, 8, -10, 25, 2, 8);
+    triangleShape(18, 8, 30, 34, 42, 8);
+    triangleShape(64, 4, 74, 27, 84, 4);
+}
+//so groupmade made a new set of pine trees for winter in the bg=======================================================================================================================
+/*
+void drawWinterPine(float x, float y, float scale)
+{
+    glColor3ub(70, 50, 35);
+    rectangle(x - 1.4f * scale, y, x + 1.4f * scale, y + 25 * scale);
+
+    glColor3ub(82, 98, 112);
+    triangleShape(x - 13*scale, y + 8*scale, x + 13*scale, y + 8*scale, x, y + 28*scale);
+    glColor3ub(94, 110, 125);
+    triangleShape(x - 10*scale, y + 17*scale, x + 10*scale, y + 17*scale, x, y + 35*scale);
+    glColor3ub(110, 125, 140);
+    triangleShape(x - 7*scale, y + 25*scale, x + 7*scale, y + 25*scale, x, y + 41*scale);
+
+    glColor3ub(245, 248, 252);
+    glLineWidth(3.0f);
+    glBegin(GL_LINES);
+        glVertex2f(x - 10*scale, y + 12*scale); glVertex2f(x + 10*scale, y + 12*scale);
+        glVertex2f(x - 7.5f*scale, y + 21*scale); glVertex2f(x + 7.5f*scale, y + 21*scale);
+        glVertex2f(x - 5*scale, y + 29*scale); glVertex2f(x + 5*scale, y + 29*scale);
+    glEnd();
+}
+*/
+void drawWinterBackground()
+{
+    if(currentSeason != WINTER) return;
+
+    for(int i = -90; i <= 95; i += 18)
+    {
+        float x = i + worldMove * 0.35f;
+        while(x > 105) x -= 220;
+        while(x < -105) x += 220;
+//        drawWinterPine(x, -20, 0.48f + (abs(i) % 3) * 0.05f);
+    }
+}
+// so in winter groupmane made trees from the scratch===============================================================================================================================================================
+void drawWinterBareTree(float x, float y, float scale, int type)
+{
+    glColor3ub(78, 49, 30);
+
+    float h = (type == 1 ? 46.0f : 52.0f) * scale;
+    float trunkW = (type == 1 ? 2.0f : 2.8f) * scale;
+
+    rectangle(x - trunkW, y, x + trunkW, y + h);
+
+    glLineWidth(3.5f * scale + 0.8f);
+    glBegin(GL_LINES);
+
+    glVertex2f(x, y + h*0.28f); glVertex2f(x - 18*scale, y + h*0.52f);
+    glVertex2f(x, y + h*0.34f); glVertex2f(x + 20*scale, y + h*0.60f);
+    glVertex2f(x, y + h*0.50f); glVertex2f(x - 15*scale, y + h*0.73f);
+    glVertex2f(x, y + h*0.60f); glVertex2f(x + 14*scale, y + h*0.82f);
+    glVertex2f(x, y + h*0.74f); glVertex2f(x - 10*scale, y + h*0.94f);
+    glVertex2f(x, y + h*0.84f); glVertex2f(x + 9*scale, y + h*1.02f);
+
+    glVertex2f(x - 18*scale, y + h*0.52f); glVertex2f(x - 25*scale, y + h*0.63f);
+    glVertex2f(x - 18*scale, y + h*0.52f); glVertex2f(x - 22*scale, y + h*0.45f);
+    glVertex2f(x + 20*scale, y + h*0.60f); glVertex2f(x + 28*scale, y + h*0.72f);
+    glVertex2f(x + 20*scale, y + h*0.60f); glVertex2f(x + 25*scale, y + h*0.52f);
+    glVertex2f(x - 15*scale, y + h*0.73f); glVertex2f(x - 21*scale, y + h*0.84f);
+    glVertex2f(x + 14*scale, y + h*0.82f); glVertex2f(x + 19*scale, y + h*0.92f);
+    glVertex2f(x - 10*scale, y + h*0.94f); glVertex2f(x - 15*scale, y + h*1.03f);
+    glVertex2f(x + 9*scale, y + h*1.02f); glVertex2f(x + 13*scale, y + h*1.10f);
+    glEnd();
+
+    glColor3ub(248, 250, 253);
+    glLineWidth(2.2f * scale + 0.6f);
+    glBegin(GL_LINES);
+        glVertex2f(x - 17*scale, y + h*0.55f); glVertex2f(x - 3*scale, y + h*0.38f);
+        glVertex2f(x + 2*scale, y + h*0.40f); glVertex2f(x + 19*scale, y + h*0.62f);
+        glVertex2f(x - 14*scale, y + h*0.76f); glVertex2f(x - 2*scale, y + h*0.54f);
+        glVertex2f(x + 2*scale, y + h*0.65f); glVertex2f(x + 13*scale, y + h*0.84f);
+    glEnd();
+}
+
+// ======================================================
+// SKY
+// ======================================================
+
 void drawSky()
 {
-    // Sky blue (slightly fresher/brighter for spring)
-
     if(currentSeason == SPRING)
     {
         glColor3ub(150, 217, 255);
+    }
+    else if(currentSeason == SUMMER)
+    {
+        glColor3ub(105, 195, 255);
+    }
+    else if(currentSeason == WINTER)
+    {
+        glColor3ub(180, 210, 235);
     }
     else
     {
@@ -355,11 +516,17 @@ void drawSky()
 
 void drawGround()
 {
-    // Green grass (brighter fresh green for spring)
-
     if(currentSeason == SPRING)
     {
         glColor3ub(72, 168, 58);
+    }
+    else if(currentSeason == SUMMER)
+    {
+        glColor3ub(190, 170, 75);
+    }
+    else if(currentSeason == WINTER)
+    {
+        glColor3ub(235, 240, 245);
     }
     else
     {
@@ -369,15 +536,24 @@ void drawGround()
     rectangle(-100, -60, 100, -20);
 }
 
+
 // ======================================================
 // SUN
 // ======================================================
 
 void drawSun()
 {
-    // Yellow sun
-
-    glColor3ub(255, 217, 26);
+    // No bright sun in winter
+    if(currentSeason == WINTER) return;
+    if(currentSeason == SUMMER)
+    {
+        // Hot orange-yellow sun for summer
+        glColor3ub(255, 180, 20);
+    }
+    else
+    {
+        glColor3ub(255, 217, 26);
+    }
 
     circle(75, 78, 9);
 }
@@ -435,7 +611,7 @@ void drawClouds()
 //   - Bushy tree: thinner trunk
 // ======================================================
 
-// ROUND TREE TRUNK — average width (same proportions as
+// ROUND TREE TRUNK ï¿½ average width (same proportions as
 // the original shared trunk)
 void drawRoundTreeTrunk(float x, float y, float scale)
 {
@@ -460,7 +636,7 @@ void drawRoundTreeTrunk(float x, float y, float scale)
     glEnd();
 }
 
-// PINE TREE TRUNK — wider than the round tree's trunk,
+// PINE TREE TRUNK ï¿½ wider than the round tree's trunk,
 // and taller so the whole pine tree stands higher
 void drawPineTreeTrunk(float x, float y, float scale)
 {
@@ -485,7 +661,7 @@ void drawPineTreeTrunk(float x, float y, float scale)
     glEnd();
 }
 
-// BUSHY TREE TRUNK — thinner than the round tree's trunk
+// BUSHY TREE TRUNK ï¿½ thinner than the round tree's trunk
 void drawBushyTreeTrunk(float x, float y, float scale)
 {
     // Brown trunk
@@ -574,14 +750,19 @@ void drawTreeLeaves(float x, float y, float scale)
 {
     // Bright fresh green in spring, normal forest green otherwise
 
-    if(currentSeason == SPRING)
-    {
-        glColor3ub(76, 187, 23);
-    }
-    else
-    {
-        glColor3ub(10, 122, 18);
-    }
+if(currentSeason == SPRING)
+{
+    glColor3ub(76, 187, 23);
+}
+else if(currentSeason == SUMMER)
+{
+    // Slightly darker foliage in summer
+    glColor3ub(8, 105, 15);
+}
+else
+{
+    glColor3ub(10, 122, 18);
+}
 
     // --------------------------------------------------
     // LEFT FOLIAGE
@@ -639,13 +820,17 @@ void drawPineLeaves(float x, float y, float scale)
     // Deeper, darker green for pine, still a bit brighter in spring
 
     if(currentSeason == SPRING)
-    {
-        glColor3ub(55, 130, 45);
-    }
-    else
-    {
-        glColor3ub(12, 70, 28);
-    }
+{
+    glColor3ub(55, 130, 45);
+}
+else if(currentSeason == SUMMER)
+{
+    glColor3ub(10, 60, 24);
+}
+else
+{
+    glColor3ub(12, 70, 28);
+}
 
     // --------------------------------------------------
     // BOTTOM LAYER (widest, lowest)
@@ -732,15 +917,18 @@ void drawBushyTriangleLeaves(float x, float y, float scale)
     // Olive / yellow-green hue keeps this tree visually distinct
     // from the Round Tree's forest green.
 
-    if(currentSeason == SPRING)
-    {
-        glColor3ub(173, 209, 60);
-    }
-    else
-    {
-        glColor3ub(107, 142, 35);
-    }
-
+   if(currentSeason == SPRING)
+{
+    glColor3ub(173, 209, 60);
+}
+else if(currentSeason == SUMMER)
+{
+    glColor3ub(95, 125, 30);
+}
+else
+{
+    glColor3ub(107, 142, 35);
+}
     // --------------------------------------------------
     // LOWER LEFT CLUSTER (anchors the canopy to the trunk)
     // --------------------------------------------------
@@ -799,6 +987,12 @@ void drawTreeBushy(float x, float y, float scale)
 
 void drawTree(float x, float y, float scale, int type)
 {
+    if(currentSeason == WINTER)
+    {
+        drawWinterBareTree(x, y, scale, type);
+        return;
+    }
+
     if(type == 0)
     {
         drawTreeRound(x, y, scale);
@@ -841,9 +1035,19 @@ void drawForest()
 
 void drawForestBgGrass(float x, float y, float scale)
 {
-    // Grass green
-
+    // Winter background shrubs are cold gray-blue, never green.
+    if(currentSeason == WINTER)
+    {
+        glColor3ub(125, 140, 155);
+    }
+    else    if(currentSeason == SUMMER)
+{
+    glColor3ub(120, 125, 35);
+}
+else
+{
     glColor3ub(34, 120, 34);
+}
 
     glBegin(GL_TRIANGLES);
 
@@ -915,7 +1119,15 @@ void drawGrass(float x, float y, float scale)
 {
     // Grass green (slightly different shade from forest bg)
 
+   if(currentSeason == SUMMER)
+{
+    // Dry yellow-green grass in summer
+    glColor3ub(170, 150, 45);
+}
+else
+{
     glColor3ub(40, 158, 45);
+}
 
     glBegin(GL_TRIANGLES);
 
@@ -1180,6 +1392,8 @@ float roadGrassScale[ROAD_GRASS_COUNT] = {
 
 void drawRoadGrass()
 {
+    if(currentSeason == WINTER) return;
+
     // Draw only a few small tufts on the road.
     for(int i = 0; i < ROAD_GRASS_COUNT; i++)
     {
@@ -1383,24 +1597,42 @@ void drawTunnelDarkness()
         // Season name
         glColor3ub(255, 255, 255);
 
-        if(targetSeason == SPRING)
-        {
-            glRasterPos2f(-18, 5);
+       if(targetSeason == SPRING)
+{
+    glRasterPos2f(-18, 5);
 
-            char text[] = "SPRING";
+    char text[] = "SPRING";
 
-            for(int i = 0; text[i] != '\0'; i++)
-                glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
-        }
-        else
-        {
-            glRasterPos2f(-22, 5);
+    for(int i = 0; text[i] != '\0'; i++)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
+}
+else if(targetSeason == SUMMER)
+{
+    glRasterPos2f(-18, 5);
 
-            char text[] = "DEFAULT";
+    char text[] = "SUMMER";
 
-            for(int i = 0; text[i] != '\0'; i++)
-                glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
-        }
+    for(int i = 0; text[i] != '\0'; i++)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
+}
+else if(targetSeason == WINTER)
+{
+    glRasterPos2f(-18, 5);
+
+    char text[] = "WINTER";
+
+    for(int i = 0; text[i] != '\0'; i++)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
+}
+else
+{
+    glRasterPos2f(-22, 5);
+
+    char text[] = "DEFAULT";
+
+    for(int i = 0; text[i] != '\0'; i++)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
+}
     }
 }
 
@@ -1517,6 +1749,13 @@ void display()
     drawSky();
     drawSun();
     drawClouds();
+
+    if(currentSeason == WINTER)
+    {
+        drawWinterMountains();
+        drawWinterBackground();
+    }
+
     drawGround();
     drawRoad();
     drawRoadGrass();
@@ -1532,6 +1771,11 @@ void display()
     if(currentSeason == SPRING)
     {
         drawSpringEnvironment();
+    }
+
+    if(currentSeason == WINTER)
+    {
+        drawSnow();
     }
 
     if(tunnelVisible && transitionStage != 3)
@@ -1552,6 +1796,7 @@ void display()
 
     glutSwapBuffers();
 }
+
 
 // ======================================================
 // UPDATE / ANIMATION
@@ -1578,6 +1823,11 @@ void update(int value)
         if(currentSeason == SPRING)
         {
             butterflyTime += 0.05f;
+        }
+
+        if(currentSeason == WINTER)
+        {
+            updateSnow();
         }
     }
 
@@ -1636,6 +1886,46 @@ void keyboard(unsigned char key, int x, int y)
         }
     }
 
+    else if(key == '2')
+{
+    if(currentSeason != SUMMER && !changingSeason)
+    {
+        targetSeason = SUMMER;
+
+        changingSeason = true;
+
+        transitionStage = 1;
+
+        tunnelVisible = true;
+        tunnelOnRight = true;
+        tunnelOnLeft = false;
+
+        movingTunnelX = tunnelRightX;
+
+        carInsideTunnel = false;
+
+        transitionCarX = carX;
+    }
+}
+
+
+
+    else if(key == '5')
+    {
+        if(currentSeason != WINTER && !changingSeason)
+        {
+            targetSeason = WINTER;
+            changingSeason = true;
+            transitionStage = 1;
+            tunnelVisible = true;
+            tunnelOnRight = true;
+            tunnelOnLeft = false;
+            movingTunnelX = tunnelRightX;
+            carInsideTunnel = false;
+            transitionCarX = carX;
+        }
+    }
+
     else if(key == ' ')
     {
         paused = !paused;
@@ -1661,6 +1951,8 @@ void init()
     glLoadIdentity();
 
     gluOrtho2D(-100, 100, -60, 100);
+
+    initSnow();
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
