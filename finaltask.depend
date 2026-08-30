@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1787746065 source:d:\uni\9th\graphics\final project\finaltask\main.cpp
+1787810797 source:d:\uni\9th\graphics\final project\finaltask\main.cpp
 	<windows.h>
 	<GL/glut.h>
 	<math.h>
