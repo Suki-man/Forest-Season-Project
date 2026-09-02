@@ -22,6 +22,23 @@ bool paused = false;
 bool automaticMode = false;
 
 // ======================================================
+// JOURNEY STATE  (F starts it, 9 ends it)
+// ======================================================
+//
+// Before F is pressed:
+//   - the man is sitting on the grass
+//   - the car stands still with the headlight off
+//
+// F  : the man walks to the car, gets in, the engine turns
+//      on and the car pulls away
+// 0-5: the seasons, and with them the man's age
+// 9  : the car slows down, a bench comes into view, the man
+//      gets out and sits on the bench - the end
+//
+bool journeyStarted = false;   // true while the car is rolling
+bool manInCar = false;         // true only while he is driving
+
+// ======================================================
 // TRAVEL / TUNNEL STATE
 // ======================================================
 
@@ -59,7 +76,13 @@ bool carInsideTunnel = false;
 // closer to the camera move a bit faster than worldSpeed,
 // layers meant to feel farther away move slower.
 float worldMove = 0.0f;
-float worldSpeed = 0.5f;
+
+// worldSpeed starts at 0 (car parked), climbs to worldSpeedMax
+// once the man is in the car, and brakes back to 0 after 9.
+float worldSpeed = 0.0f;
+float worldSpeedMax = 0.5f;
+float worldAcceleration = 0.02f;
+float worldBrake = 0.004f;
 
 // --- Per-layer offsets (accumulated each frame) ---
 float forestMove = 0.0f;      // trees
@@ -86,6 +109,10 @@ float winterBgSpeedMul = 0.35f;
 
 float carX = 0.0f;
 float carY = -48.0f;
+
+// The whole car is drawn through this scale, so the man behind
+// the glass is big enough to see.
+float carScale = 1.45f;
 
 float transitionCarX = 0.0f;
 float transitionCarSpeed = 1.5f;
@@ -309,6 +336,14 @@ void triangleShape(float x1, float y1, float x2, float y2, float x3, float y3)
     glVertex2f(x2, y2);
     glVertex2f(x3, y3);
     glEnd();
+}
+
+// Simple bitmap text helper.
+void drawText(float x, float y, const char *text)
+{
+    glRasterPos2f(x, y);
+    for(int i = 0; text[i] != '\0'; i++)
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
 }
 
 // Takes a base color and a shade factor (e.g. 0.7 = darker,
@@ -951,10 +986,492 @@ void drawRoad()
 }
 
 // ======================================================
+// THE ENDING  (bench on key 9, last words on key 8)
+// ======================================================
+
+bool endingStarted = false;   // 9 has been pressed
+bool benchVisible = false;
+bool showEndMessage = false;  // 8 has been pressed
+
+float benchX = 120.0f;        // comes in from the right
+float benchY = -40.0f;        // stands on the grass edge of the road
+
+void drawBench()
+{
+    if(!benchVisible)
+        return;
+
+    float x = benchX;
+    float y = benchY;
+
+    // legs
+    glColor3ub(110, 70, 38);
+    rectangle(x - 8.5f, y, x - 6.5f, y + 6);
+    rectangle(x + 6.5f, y, x + 8.5f, y + 6);
+
+    // seat
+    glColor3ub(140, 92, 50);
+    rectangle(x - 11, y + 6, x + 11, y + 8);
+
+    // back posts
+    glColor3ub(110, 70, 38);
+    rectangle(x - 8.5f, y + 8, x - 6.8f, y + 16);
+    rectangle(x + 6.8f, y + 8, x + 8.5f, y + 16);
+
+    // back planks
+    glColor3ub(140, 92, 50);
+    rectangle(x - 11, y + 11, x + 11, y + 12.6f);
+    rectangle(x - 11, y + 14, x + 11, y + 15.6f);
+}
+
+// The last screen of the whole journey.
+void drawEndMessage()
+{
+    if(!showEndMessage)
+        return;
+
+    glColor3ub(0, 0, 0);
+    rectangle(-100, -60, 100, 100);
+
+    glColor3ub(255, 255, 255);
+    drawText(-21, 12, "LIFE IS LIKE THE SEASON,");
+    drawText(-25, 0, "YOU WONT NOTICE WHEN ITS GONE");
+}
+
+// ======================================================
+// THE MAN  -  ONE LIFE, SIX AGES
+// ======================================================
+//
+// Everything about the man is kept together in this one block:
+// where he is, how he ages, and how he is drawn sitting,
+// walking and driving.
+//
+// The age stage is simply the season number, so the man grows
+// older every time a new season is entered with keys 0 - 5:
+//
+//   0  sedlife : young man   - full black hair, clean shaven
+//   1  SPRING  : late 20s    - full black hair, light stubble
+//   2  SUMMER  : mid 30s     - full hair, short black beard
+//   3  RAINY   : mid 40s     - hairline receding, thick beard
+//   4  AUTUMN  : late 50s    - balding (side hair), grey beard
+//   5  WINTER  : old man     - bald head, long white beard
+//
+// His life in this scene runs through five states:
+
+#define MAN_ON_GRASS      0   // sitting on the grass, waiting
+#define MAN_WALK_TO_CAR   1   // walking over to the car (key F)
+#define MAN_IN_CAR        2   // driving through the seasons
+#define MAN_WALK_TO_BENCH 3   // walking to the bench (key 9)
+#define MAN_ON_BENCH      4   // sitting on the bench - the end
+
+int manState = MAN_ON_GRASS;
+
+float manX = -58.0f;          // feet position while he is outside
+float manY = -30.0f;          // he starts on the grass
+float manWalkSpeed = 0.42f;
+
+int manAge()
+{
+    // sedlife = 0 ... WINTER = 5
+    return currentSeason;
+}
+
+// Skin gets a little paler with age.
+void manSkinColor(int stage)
+{
+    if(stage <= 1)      glColor3ub(245, 205, 170);
+    else if(stage <= 3) glColor3ub(238, 196, 160);
+    else                glColor3ub(228, 195, 172);
+}
+
+// Hair / beard color: black -> dark grey -> grey -> white.
+void manHairColor(int stage)
+{
+    if(stage <= 2)      glColor3ub(35, 25, 20);
+    else if(stage == 3) glColor3ub(65, 52, 45);
+    else if(stage == 4) glColor3ub(150, 150, 150);
+    else                glColor3ub(242, 242, 242);
+}
+
+// Shirt gets darker as the man gets older.
+void manShirtColor(int stage)
+{
+    if(stage == 0)      glColor3ub(70, 150, 220);
+    else if(stage == 1) glColor3ub(60, 130, 190);
+    else if(stage == 2) glColor3ub(50, 105, 160);
+    else if(stage == 3) glColor3ub(70, 90, 110);
+    else if(stage == 4) glColor3ub(85, 85, 95);
+    else                glColor3ub(110, 110, 120);
+}
+
+void manTrouserColor(int stage)
+{
+    if(stage <= 2)      glColor3ub(45, 55, 85);
+    else                glColor3ub(60, 60, 70);
+}
+
+// The hair sits BEHIND the face: a circle pushed up (and back)
+// so only its top rim shows around the skin, which is what a
+// hairline looks like. Nothing here but plain circles.
+void drawManHairBack(int stage, float hx, float hy, float hr)
+{
+    manHairColor(stage);
+
+    if(stage <= 2)
+    {
+        // Full head of hair.
+        circle(hx, hy + 0.28f * hr, hr * 1.16f);
+    }
+    else if(stage == 3)
+    {
+        // Pushed up and back, so the forehead starts to show.
+        circle(hx - 0.32f * hr, hy + 0.32f * hr, hr * 1.06f);
+    }
+    else if(stage == 4)
+    {
+        // Balding: only two side tufts are left.
+        circle(hx - 0.85f * hr, hy + 0.10f * hr, 0.42f * hr);
+        circle(hx + 0.80f * hr, hy + 0.05f * hr, 0.34f * hr);
+    }
+    else
+    {
+        // Bald, with one thin white tuft at the back.
+        circle(hx - 0.85f * hr, hy + 0.05f * hr, 0.36f * hr);
+    }
+}
+
+// The little fringe on the forehead, only while the hair is full.
+void drawManFringe(int stage, float hx, float hy, float hr)
+{
+    if(stage > 2)
+        return;
+    manHairColor(stage);
+    rectangle(hx + 0.35f * hr, hy + 0.40f * hr, hx + 0.95f * hr, hy + 0.88f * hr);
+}
+
+// The beard is a row of overlapping circles along the jaw, and a
+// straight block under the chin once it gets long.
+void drawManBeard(int stage, float hx, float hy, float hr)
+{
+    if(stage == 0)
+        return;
+
+    manHairColor(stage);
+
+    if(stage == 1)
+    {
+        // Light stubble: three small dots along the jaw.
+        circle(hx - 0.55f * hr, hy - 0.62f * hr, 0.30f * hr);
+        circle(hx + 0.02f * hr, hy - 0.76f * hr, 0.32f * hr);
+        circle(hx + 0.55f * hr, hy - 0.60f * hr, 0.30f * hr);
+        return;
+    }
+
+    // The beard circles get bigger with age.
+    float b = 0.42f;
+    if(stage == 3) b = 0.48f;
+    if(stage >= 4) b = 0.52f;
+
+    circle(hx - 0.85f * hr, hy - 0.32f * hr, b * hr);
+    circle(hx - 0.45f * hr, hy - 0.70f * hr, b * hr);
+    circle(hx,              hy - 0.85f * hr, b * hr);
+    circle(hx + 0.45f * hr, hy - 0.70f * hr, b * hr);
+    circle(hx + 0.80f * hr, hy - 0.30f * hr, b * hr);
+
+    // The last two beards hang below the chin.
+    if(stage == 4)
+    {
+        rectangle(hx - 0.45f * hr, hy - 1.35f * hr, hx + 0.45f * hr, hy - 0.60f * hr);
+        circle(hx, hy - 1.35f * hr, 0.45f * hr);
+    }
+    else if(stage == 5)
+    {
+        rectangle(hx - 0.50f * hr, hy - 1.85f * hr, hx + 0.50f * hr, hy - 0.60f * hr);
+        circle(hx, hy - 1.85f * hr, 0.50f * hr);
+    }
+
+    // Moustache.
+    rectangle(hx + 0.05f * hr, hy - 0.52f * hr, hx + 0.85f * hr, hy - 0.18f * hr);
+}
+
+// Face + beard + hair + details. Used by every pose.
+void drawManHead(int stage, float hx, float hy, float hr)
+{
+    // Hair first, so the face covers all but its rim.
+    drawManHairBack(stage, hx, hy, hr);
+
+    // Face.
+    manSkinColor(stage);
+    circle(hx, hy, hr);
+
+    drawManBeard(stage, hx, hy, hr);
+    drawManFringe(stage, hx, hy, hr);
+
+    // Ear (the man faces right, so the ear is on the left side).
+    manSkinColor(stage);
+    circle(hx - hr * 0.92f, hy - hr * 0.10f, hr * 0.26f);
+
+    // Eye.
+    glColor3ub(30, 30, 30);
+    circle(hx + hr * 0.42f, hy + hr * 0.12f, hr * 0.15f);
+
+    // Eyebrow - greys along with the hair.
+    manHairColor(stage);
+    glLineWidth(2.0f);
+    glBegin(GL_LINES);
+    glVertex2f(hx + hr * 0.16f, hy + hr * 0.50f);
+    glVertex2f(hx + hr * 0.74f, hy + hr * 0.44f);
+    glEnd();
+
+    // Age lines on the last two stages.
+    if(stage >= 4)
+    {
+        glColor3ub(196, 165, 145);
+        glLineWidth(1.0f);
+        glBegin(GL_LINES);
+        glVertex2f(hx + hr * 0.18f, hy - hr * 0.12f);
+        glVertex2f(hx + hr * 0.70f, hy - hr * 0.12f);
+        glVertex2f(hx + hr * 0.14f, hy + hr * 0.74f);
+        glVertex2f(hx + hr * 0.76f, hy + hr * 0.72f);
+        glEnd();
+    }
+}
+
+// The man behind the wheel. (x, y) is the car origin, so this
+// is drawn inside the car's own scaled coordinates.
+void drawManInCar(float x, float y)
+{
+    if(!manInCar)
+        return;
+
+    int stage = manAge();
+
+    float hx = x - 0.8f;      // head centre, inside the window
+    float hy = y + 9.4f;
+    float hr = 2.0f;
+
+    // Shoulders behind the glass.
+    manShirtColor(stage);
+    rectangle(hx - 2.6f, y + 7.2f, hx + 2.6f, hy - hr * 0.55f);
+
+    // Neck.
+    manSkinColor(stage);
+    rectangle(hx - 0.7f, hy - hr * 1.25f, hx + 0.7f, hy - hr * 0.40f);
+
+    drawManHead(stage, hx, hy, hr);
+}
+
+// The standing figure. (fx, fy) is where his feet are.
+// He simply slides to where he is going, so the legs and the
+// arm stay in one fixed pose.
+void drawManStanding(float fx, float fy)
+{
+    int stage = manAge();
+
+    float hipY  = fy + 6.5f;
+    float shY   = fy + 12.0f;      // shoulder height
+    float headY = fy + 15.0f;
+    float hr    = 2.6f;
+
+    // Legs, a little apart.
+    manTrouserColor(stage);
+    glLineWidth(5.0f);
+    glBegin(GL_LINES);
+    glVertex2f(fx, hipY); glVertex2f(fx + 1.4f, fy);
+    glVertex2f(fx, hipY); glVertex2f(fx - 1.4f, fy);
+    glEnd();
+
+    // Shoes.
+    glColor3ub(40, 40, 45);
+    circle(fx + 1.4f, fy, 0.9f);
+    circle(fx - 1.4f, fy, 0.9f);
+
+    // Body.
+    manShirtColor(stage);
+    rectangle(fx - 2.2f, hipY, fx + 2.2f, shY);
+
+    // Arm hanging down at his side.
+    manShirtColor(stage);
+    glLineWidth(4.0f);
+    glBegin(GL_LINES);
+    glVertex2f(fx, shY - 0.5f);
+    glVertex2f(fx - 2.0f, hipY + 0.5f);
+    glEnd();
+    manSkinColor(stage);
+    circle(fx - 2.0f, hipY + 0.4f, 0.8f);
+
+    // Neck.
+    manSkinColor(stage);
+    rectangle(fx - 0.9f, shY - 0.4f, fx + 0.9f, headY - hr * 0.55f);
+
+    drawManHead(stage, fx, headY, hr);
+}
+
+// Sitting on the grass, legs stretched out to the right.
+// (x, y) is the spot of grass he is sitting on.
+void drawManSitOnGrass(float x, float y)
+{
+    int stage = manAge();
+
+    float hipY  = y + 2.2f;
+    float shY   = hipY + 5.5f;
+    float headY = shY + 3.0f;
+    float hr    = 2.6f;
+
+    // Legs stretched forward.
+    manTrouserColor(stage);
+    glLineWidth(5.0f);
+    glBegin(GL_LINES);
+    glVertex2f(x, hipY);        glVertex2f(x + 7.5f, y + 1.0f);
+    glVertex2f(x, hipY - 0.8f); glVertex2f(x + 7.0f, y + 0.4f);
+    glEnd();
+    glColor3ub(40, 40, 45);
+    circle(x + 7.8f, y + 1.0f, 0.9f);
+
+    // Body.
+    manShirtColor(stage);
+    rectangle(x - 2.0f, hipY, x + 2.2f, shY);
+
+    // Arm resting back on the grass.
+    manShirtColor(stage);
+    glLineWidth(4.0f);
+    glBegin(GL_LINES);
+    glVertex2f(x, shY - 0.8f);
+    glVertex2f(x - 3.4f, hipY - 1.2f);
+    glEnd();
+    manSkinColor(stage);
+    circle(x - 3.6f, hipY - 1.4f, 0.8f);
+
+    // Neck.
+    manSkinColor(stage);
+    rectangle(x - 0.9f, shY - 0.4f, x + 0.9f, headY - hr * 0.55f);
+
+    drawManHead(stage, x, headY, hr);
+}
+
+// Sitting on the bench. seatY is the top of the seat,
+// groundY is where his shoes rest.
+void drawManSitOnBench(float x, float seatY, float groundY)
+{
+    int stage = manAge();
+
+    float hipY  = seatY + 1.6f;
+    float shY   = hipY + 5.5f;
+    float headY = shY + 3.0f;
+    float hr    = 2.6f;
+
+    // Thigh forward, then the shin down to the ground.
+    manTrouserColor(stage);
+    glLineWidth(5.0f);
+    glBegin(GL_LINES);
+    glVertex2f(x, hipY);        glVertex2f(x + 5.0f, hipY - 0.4f);
+    glVertex2f(x + 5.0f, hipY); glVertex2f(x + 5.6f, groundY);
+    glEnd();
+    glColor3ub(40, 40, 45);
+    circle(x + 5.8f, groundY + 0.4f, 0.9f);
+
+    // Body.
+    manShirtColor(stage);
+    rectangle(x - 2.0f, hipY, x + 2.2f, shY);
+
+    // Arm resting on his knee.
+    manShirtColor(stage);
+    glLineWidth(4.0f);
+    glBegin(GL_LINES);
+    glVertex2f(x, shY - 0.8f);
+    glVertex2f(x + 3.6f, hipY + 0.4f);
+    glEnd();
+    manSkinColor(stage);
+    circle(x + 3.8f, hipY + 0.3f, 0.8f);
+
+    // Neck.
+    manSkinColor(stage);
+    rectangle(x - 0.9f, shY - 0.4f, x + 0.9f, headY - hr * 0.55f);
+
+    drawManHead(stage, x, headY, hr);
+}
+
+// The man whenever he is NOT inside the car.
+void drawManOutside()
+{
+    if(manState == MAN_ON_GRASS)
+        drawManSitOnGrass(manX, manY);
+    else if(manState == MAN_WALK_TO_CAR || manState == MAN_WALK_TO_BENCH)
+        drawManStanding(manX, manY);
+    else if(manState == MAN_ON_BENCH)
+        drawManSitOnBench(benchX - 1.0f, benchY + 8.0f, benchY);
+}
+
+// Walks one step towards a target, and switches state on arrival.
+void manWalkTowards(float tx, float ty, int nextState)
+{
+    float dx = tx - manX;
+    float dy = ty - manY;
+    float d = (float)sqrt(dx * dx + dy * dy);
+
+    if(d <= manWalkSpeed)
+    {
+        manX = tx;
+        manY = ty;
+        manState = nextState;
+        return;
+    }
+    manX += manWalkSpeed * dx / d;
+    manY += manWalkSpeed * dy / d;
+}
+
+void updateMan()
+{
+    if(manState == MAN_WALK_TO_CAR)
+    {
+        // He comes down the grass and reaches the car from its
+        // upper side, so he is always drawn behind it.
+        manWalkTowards(carX - 5.0f, carY + 6.0f, MAN_IN_CAR);
+        if(manState == MAN_IN_CAR)
+        {
+            // He is inside now: the engine starts and the car rolls.
+            manInCar = true;
+            journeyStarted = true;
+            worldSpeed = 0.0f;
+        }
+    }
+    else if(manState == MAN_WALK_TO_BENCH)
+    {
+        manWalkTowards(benchX - 5.0f, benchY, MAN_ON_BENCH);
+    }
+}
+
+// After key 9: the car brakes, the bench slides in with the
+// world, and when everything has stopped the man steps out of
+// the upper side of the car and walks over to it.
+void updateEnding()
+{
+    if(!endingStarted)
+        return;
+
+    if(worldSpeed > 0.0f)
+    {
+        benchX -= worldSpeed;
+        worldSpeed -= worldBrake;
+        if(worldSpeed < 0.0f)
+            worldSpeed = 0.0f;
+    }
+    else if(manState == MAN_IN_CAR)
+    {
+        manInCar = false;
+        manState = MAN_WALK_TO_BENCH;
+        manX = carX - 5.0f;
+        manY = carY + 6.0f;
+    }
+}
+
+// ======================================================
 // CAR
 // ======================================================
 
-void drawCar(float x, float y)
+// The car shape, drawn around its own origin. drawCar() below
+// puts it on the road and scales the whole thing up.
+void drawCarShape(float x, float y)
 {
     glColor3ub(200, 30, 30);
     rectangle(x - 11, y, x + 11, y + 7);
@@ -980,15 +1497,35 @@ void drawCar(float x, float y)
     glVertex2f(x, y + 7.5f);
     glVertex2f(x, y + 11.0f);
     glEnd();
-    glColor3ub(255, 250, 200);
-    circle(x + 12.0f, y + 2.5f, 1.1f);
+
+    // The man sits behind the glass, so he is drawn right after
+    // the window and before the lights and wheels.
+    drawManInCar(x, y);
+
+    // ---- HEADLIGHT ----
+    // Only on while the man is actually driving.
+    if(manInCar)
+    {
+        glEnable(GL_BLEND);
+        glColor4ub(255, 245, 160, 80);
+        triangleShape(x + 12.5f, y + 2.5f, x + 34.0f, y + 9.0f, x + 34.0f, y - 4.0f);
+        glDisable(GL_BLEND);
+        glColor3ub(255, 250, 200);
+        circle(x + 12.0f, y + 2.5f, 1.4f);
+    }
+    else
+    {
+        glColor3ub(150, 150, 140);
+        circle(x + 12.0f, y + 2.5f, 1.1f);
+    }
+
     glColor3ub(255, 70, 40);
     rectangle(x - 12.5f, y + 1.5f, x - 10.5f, y + 4.5f);
     glColor3ub(20, 20, 20);
     circle(x - 7, y, 3.2f);
     circle(x + 7, y, 3.2f);
     glColor3ub(220, 220, 220);
-    glLineWidth(1.5f);
+    glLineWidth(2.0f);
     float angle = wheelRotation * PI / 180.0f;
     for(int i = 0; i < 4; i++)
     {
@@ -1002,6 +1539,15 @@ void drawCar(float x, float y)
     }
 }
 
+void drawCar(float x, float y)
+{
+    glPushMatrix();
+    glTranslatef(x, y, 0.0f);
+    glScalef(carScale, carScale, 1.0f);
+    drawCarShape(0.0f, 0.0f);
+    glPopMatrix();
+}
+
 // ======================================================
 // CAVE / TUNNEL
 // ======================================================
@@ -1013,13 +1559,13 @@ void drawCave()
     float x = movingTunnelX;
     glColor3ub(75, 75, 75);
     glBegin(GL_POLYGON);
-    glVertex2f(x - 20, -40); glVertex2f(x - 17, -25); glVertex2f(x - 12, -13); glVertex2f(x - 5, -7);
-    glVertex2f(x + 5, -7);   glVertex2f(x + 13, -13); glVertex2f(x + 18, -25); glVertex2f(x + 20, -40);
+    glVertex2f(x - 27, -40); glVertex2f(x - 23, -22); glVertex2f(x - 16, -10); glVertex2f(x - 7, -3);
+    glVertex2f(x + 7, -3);   glVertex2f(x + 17, -10); glVertex2f(x + 24, -22); glVertex2f(x + 27, -40);
     glEnd();
     glColor3ub(5, 5, 5);
     glBegin(GL_POLYGON);
-    glVertex2f(x - 9, -40); glVertex2f(x - 9, -25); glVertex2f(x - 6, -19);
-    glVertex2f(x, -16);     glVertex2f(x + 6, -19); glVertex2f(x + 9, -25); glVertex2f(x + 9, -40);
+    glVertex2f(x - 13, -40); glVertex2f(x - 13, -24); glVertex2f(x - 8, -16);
+    glVertex2f(x, -12);      glVertex2f(x + 8, -16); glVertex2f(x + 13, -24); glVertex2f(x + 13, -40);
     glEnd();
 }
 
@@ -1031,33 +1577,46 @@ void drawTunnelDarkness()
     rectangle(-100, -60, 100, 100);
     glColor3ub(255, 255, 255);
     if(targetSeason == SPRING)
-    {
-        glRasterPos2f(-18, 5);
-        char text[] = "SPRING";
-        for(int i = 0; text[i] != '\0'; i++)
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
-    }
+        drawText(-18, 5, "SPRING");
     else if(targetSeason == SUMMER)
-    {
-        glRasterPos2f(-18, 5);
-        char text[] = "SUMMER";
-        for(int i = 0; text[i] != '\0'; i++)
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
-    }
+        drawText(-19, 5, "SUMMER");
+    else if(targetSeason == RAINY)
+        drawText(-16, 5, "RAINY");
+    else if(targetSeason == AUTUMN)
+        drawText(-20, 5, "AUTUMN");
     else if(targetSeason == WINTER)
-    {
-        glRasterPos2f(-18, 5);
-        char text[] = "WINTER";
-        for(int i = 0; text[i] != '\0'; i++)
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
-    }
+        drawText(-18, 5, "WINTER");
     else
-    {
-        glRasterPos2f(-22, 5);
-        char text[] = "DEFAULT";
-        for(int i = 0; text[i] != '\0'; i++)
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
-    }
+        drawText(-22, 5, "DEFAULT");
+}
+
+// ======================================================
+// HINT BOX  (top left, only before the journey starts)
+// ======================================================
+
+void drawHintBox()
+{
+    if(manState != MAN_ON_GRASS)
+        return;
+
+    // box
+    glColor3ub(255, 255, 240);
+    rectangle(-96, 62, -48, 96);
+    glColor3ub(40, 40, 40);
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(-96, 62);
+    glVertex2f(-48, 62);
+    glVertex2f(-48, 96);
+    glVertex2f(-96, 96);
+    glEnd();
+
+    // text
+    glColor3ub(30, 30, 30);
+    drawText(-93, 88, "PRESS  F  TO START");
+    drawText(-93, 80, "0 - 5   SEASONS");
+    drawText(-93, 72, "9   END OF JOURNEY");
+    drawText(-93, 64, "8   LAST WORDS");
 }
 
 // ======================================================
@@ -1070,6 +1629,10 @@ void drawTunnelDarkness()
 // faster (read as "closer to the camera").
 void updateWorld()
 {
+    // Nothing moves until the man is in the car.
+    if(!journeyStarted)
+        return;
+
     if(transitionStage == 0)
     {
         worldMove     -= worldSpeed;
@@ -1102,7 +1665,7 @@ void updateSeasonTransition()
     if(transitionStage == 1)
     {
         transitionCarX += transitionCarSpeed;
-        if(transitionCarX >= movingTunnelX - 12)
+        if(transitionCarX >= movingTunnelX - 16)
             transitionStage = 2;
     }
     else if(transitionStage == 2)
@@ -1203,23 +1766,30 @@ void display()
     drawGround();
     drawRoad();
     drawRoadGrass();
-    if(currentSeason == sedlife)
-        {drawGrassField();}
+
 
     drawForestBg();
    // drawMountains();
     drawForest();
+
+        if(currentSeason == sedlife)
+        {drawGrassField();}
     if(currentSeason == SPRING)
         {drawSpringEnvironment();}
     if(currentSeason == WINTER)
         {drawSnow();}
+    drawBench();
     if(tunnelVisible && transitionStage != 3)
         {drawCave();}
+    // The man walks on the far side, so he is drawn before the car.
+    drawManOutside();
     if(changingSeason)
         {drawCar(transitionCarX, carY);}
     else
         drawCar(carX, carY);
+    drawHintBox();
     drawTunnelDarkness();
+    drawEndMessage();
     glutSwapBuffers();
 }
 
@@ -1231,10 +1801,24 @@ void update(int value)
 {
     if(!paused)
     {
+        // The car speeds up smoothly once the man is in it.
+        if(journeyStarted && !endingStarted && worldSpeed < worldSpeedMax)
+        {
+            worldSpeed += worldAcceleration;
+            if(worldSpeed > worldSpeedMax)
+                worldSpeed = worldSpeedMax;
+        }
+
+        updateEnding();
         updateWorld();
-        wheelRotation -= 15.0f;
+        updateMan();
+
+        // The wheels turn only as fast as the car really moves,
+        // so they stand still before and after the journey.
+        wheelRotation -= 30.0f * worldSpeed;
         if(wheelRotation < 0)
             wheelRotation += 360.0f;
+
         if(changingSeason)
             updateSeasonTransition();
         updateClouds();
@@ -1251,76 +1835,67 @@ void update(int value)
 // KEYBOARD
 // ======================================================
 
+// One helper for all six season keys. Seasons can only be
+// changed while the man is driving.
+void startSeasonChange(int season)
+{
+    if(manState != MAN_IN_CAR || endingStarted)
+        return;
+    if(currentSeason == season || changingSeason)
+        return;
+
+    targetSeason = season;
+    changingSeason = true;
+    transitionStage = 1;
+    tunnelVisible = true;
+    tunnelOnRight = true;
+    tunnelOnLeft = false;
+    movingTunnelX = tunnelRightX;
+    carInsideTunnel = false;
+    transitionCarX = carX;
+}
+
 void keyboard(unsigned char key, int x, int y)
 {
-    if(key == '0')
+    if(key == 'f' || key == 'F')
     {
-        if(currentSeason != sedlife && !changingSeason)
+        // He gets up from the grass and walks to the car.
+        if(manState == MAN_ON_GRASS)
+            manState = MAN_WALK_TO_CAR;
+    }
+    else if(key == '9')
+    {
+        // End of the journey: the bench comes in from the right.
+        if(manState == MAN_IN_CAR && !changingSeason && !endingStarted)
         {
-            targetSeason = sedlife;
-            changingSeason = true;
-            transitionStage = 1;
-            tunnelVisible = true;
-            tunnelOnRight = true;
-            tunnelOnLeft = false;
-            movingTunnelX = tunnelRightX;
-            carInsideTunnel = false;
-            transitionCarX = carX;
+            endingStarted = true;
+            benchVisible = true;
+            benchX = 72.0f;
         }
     }
+    else if(key == '8')
+    {
+        // The last words, after the journey has ended.
+        if(endingStarted)
+            showEndMessage = true;
+    }
+    else if(key == '0')
+        startSeasonChange(sedlife);
     else if(key == '1')
-    {
-        if(currentSeason != SPRING && !changingSeason)
-        {
-            targetSeason = SPRING;
-            changingSeason = true;
-            transitionStage = 1;
-            tunnelVisible = true;
-            tunnelOnRight = true;
-            tunnelOnLeft = false;
-            movingTunnelX = tunnelRightX;
-            carInsideTunnel = false;
-            transitionCarX = carX;
-        }
-    }
+        startSeasonChange(SPRING);
     else if(key == '2')
-    {
-        if(currentSeason != SUMMER && !changingSeason)
-        {
-            targetSeason = SUMMER;
-            changingSeason = true;
-            transitionStage = 1;
-            tunnelVisible = true;
-            tunnelOnRight = true;
-            tunnelOnLeft = false;
-            movingTunnelX = tunnelRightX;
-            carInsideTunnel = false;
-            transitionCarX = carX;
-        }
-    }
+        startSeasonChange(SUMMER);
+    else if(key == '3')
+        startSeasonChange(RAINY);
+    else if(key == '4')
+        startSeasonChange(AUTUMN);
     else if(key == '5')
-    {
-        if(currentSeason != WINTER && !changingSeason)
-        {
-            targetSeason = WINTER;
-            changingSeason = true;
-            transitionStage = 1;
-            tunnelVisible = true;
-            tunnelOnRight = true;
-            tunnelOnLeft = false;
-            movingTunnelX = tunnelRightX;
-            carInsideTunnel = false;
-            transitionCarX = carX;
-        }
-    }
+        startSeasonChange(WINTER);
     else if(key == ' ')
-    {
         paused = !paused;
-    }
     else if(key == 27)
-    {
         exit(0);
-    }
+
     glutPostRedisplay();
 }
 
@@ -1334,6 +1909,7 @@ void init()
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     gluOrtho2D(-100, 100, -60, 100);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     initSnow();
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
