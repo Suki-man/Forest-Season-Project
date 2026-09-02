@@ -49,7 +49,6 @@ bool carInsideTunnel = false;
 // The visible screen is only -100 to +100.
 // Therefore objects can exist from about -150 to +150.
 float worldMove = 0.0f;
-float worldSpeed = 0.5f;
 
 float carX = 0.0f;
 float carY = -48.0f;
@@ -101,11 +100,8 @@ float treeScale[TREE_COUNT] = {
 
 // Y positions of trees
 float treeY[TREE_COUNT] = {
-    -23, -21, -25, -22,
-    -24, -26, -22, -23,
-    -21, -24, -22, -25,
-    -21, -23, -22, -24,
-    -20, -23, -22, -24
+    -23, -21, -25, -22, -24, -26, -22, -23, -21, -24,
+    -22, -25, -21, -23, -22, -24, -20, -23, -22, -24
 };
 
 // 0 = Round
@@ -126,25 +122,17 @@ int treeType[TREE_COUNT] = {
 const int FOREST_BG_COUNT = 32;
 
 float forestBgX[FOREST_BG_COUNT] = {
-    -145, -132, -119, -106,
-    -93,  -80,  -67,  -54,
-    -41,  -28,  -15,  -2,
-     11,   24,   37,   50,
-     63,   76,   89,  102,
-    115,  128,  141, -125,
-    -75,  -25,   25,   75,
-    125,  -100,  100,  -150
+    -145, -132, -119, -106, -93, -80, -67, -54, -41, -28,
+    -15, -2, 11, 24, 37, 50, 63, 76, 89, 102,
+    115, 128, 141, -125, -75, -25, 25, 75, 125, -100,
+    100, -150
 };
 
 float forestBgScale[FOREST_BG_COUNT] = {
-    0.8, 1.0, 0.7, 0.9,
-    1.1, 0.8, 0.6, 1.0,
-    0.9, 0.7, 1.0, 0.8,
-    0.9, 1.1, 0.7, 0.8,
-    1.0, 0.6, 0.9, 0.8,
-    1.0, 0.7, 0.9, 0.8,
-    1.1, 0.7, 0.9, 0.8,
-    1.0, 0.6, 0.6, 0.7
+    0.8, 1.0, 0.7, 0.9, 1.1, 0.8, 0.6, 1.0, 0.9, 0.7,
+    1.0, 0.8, 0.9, 1.1, 0.7, 0.8, 1.0, 0.6, 0.9, 0.8,
+    1.0, 0.7, 0.9, 0.8, 1.1, 0.7, 0.9, 0.8, 1.0, 0.6,
+    0.6, 0.7
 };
 
 // ======================================================
@@ -155,42 +143,24 @@ float forestBgScale[FOREST_BG_COUNT] = {
 const int GRASS_COUNT = 40;
 
 float grassX[GRASS_COUNT] = {
-    -148, -135, -122, -109,
-    -96,  -83,  -70,  -57,
-    -44,  -31,  -18,   -5,
-      8,   21,   34,   47,
-     60,   73,   86,   99,
-    112,  125,  138, -128,
-    -102,  -76,  -50,  -24,
-      4,   30,   56,   82,
-    108,  134, -140, -65,
-     -5,   45,   95, 145
+    -148, -135, -122, -109, -96, -83, -70, -57, -44, -31,
+    -18, -5, 8, 21, 34, 47, 60, 73, 86, 99,
+    112, 125, 138, -128, -102, -76, -50, -24, 4, 30,
+    56, 82, 108, 134, -140, -65, -5, 45, 95, 145
 };
 
 float grassY[GRASS_COUNT] = {
-    -22, -30, -25, -35,
-    -28, -40, -24, -33,
-    -45, -27, -38, -23,
-    -42, -31, -26, -48,
-    -29, -36, -22, -44,
-    -34, -25, -50, -30,
-    -39, -23, -46, -28,
-    -33, -55, -37, -52,
-    -41, -22, -47, -31,
-    -24, -43, -53, -35
+    -22, -30, -25, -35, -28, -40, -24, -33, -45, -27,
+    -38, -23, -42, -31, -26, -48, -29, -36, -22, -44,
+    -34, -25, -50, -30, -39, -23, -46, -28, -33, -55,
+    -37, -52, -41, -22, -47, -31, -24, -43, -53, -35
 };
 
 float grassScale[GRASS_COUNT] = {
-    0.8, 1.0, 0.7, 0.9,
-    1.1, 0.8, 0.6, 1.0,
-    0.9, 0.7, 1.0, 0.8,
-    0.9, 1.1, 0.7, 0.8,
-    1.0, 0.6, 0.9, 0.8,
-    1.0, 0.7, 0.9, 0.8,
-    1.1, 0.7, 0.9, 0.8,
-    1.0, 0.6, 0.85, 0.95,
-    0.65, 1.05, 0.75, 0.9,
-    0.7, 1.0, 0.6, 0.95
+    0.8, 1.0, 0.7, 0.9, 1.1, 0.8, 0.6, 1.0, 0.9, 0.7,
+    1.0, 0.8, 0.9, 1.1, 0.7, 0.8, 1.0, 0.6, 0.9, 0.8,
+    1.0, 0.7, 0.9, 0.8, 1.1, 0.7, 0.9, 0.8, 1.0, 0.6,
+    0.85, 0.95, 0.65, 1.05, 0.75, 0.9, 0.7, 1.0, 0.6, 0.95
 };
 
 // ======================================================
@@ -284,16 +254,6 @@ float snowX[SNOW_COUNT];
 float snowY[SNOW_COUNT];
 float snowSpeed[SNOW_COUNT];
 
-void initSnow()
-{
-    for(int i = 0; i < SNOW_COUNT; i++)
-    {
-        snowX[i] = -100.0f + (float)(rand() % 201);
-        snowY[i] = -60.0f + (float)(rand() % 161);
-        snowSpeed[i] = 0.20f + (float)(rand() % 30) / 100.0f;
-    }
-}
-
 // ======================================================
 // BASIC RECTANGLE
 // ======================================================
@@ -317,7 +277,6 @@ void rectangle(float x1, float y1, float x2, float y2)
 void circle(float x, float y, float radius)
 {
     glBegin(GL_POLYGON);
-
     for(int i = 0; i < 100; i++)
     {
         float angle = 2.0f * PI * i / 100.0f;
@@ -327,7 +286,6 @@ void circle(float x, float y, float radius)
 
         glVertex2f(px, py);
     }
-
     glEnd();
 }
 
@@ -387,6 +345,10 @@ void drawSnow()
     if(currentSeason != WINTER)
         return;
 
+void drawSnow()
+{
+    if(currentSeason != WINTER)
+        return;
     glColor3ub(255, 255, 255);
 
     for(int i = 0; i < SNOW_COUNT; i++)
@@ -408,7 +370,6 @@ void updateSnow()
     {
         snowY[i] -= snowSpeed[i];
         snowX[i] -= 0.03f;
-
         if(snowY[i] < -60)
         {
             snowY[i] = 100;
@@ -436,7 +397,6 @@ void drawWinterMountains()
     triangleShape(-35, -20, 15, -20, -10, 25);
     triangleShape(5, -20, 55, -20, 30, 34);
     triangleShape(45, -20, 100, -20, 74, 27);
-
     glColor3ub(242, 247, 252);
 
     triangleShape(-58, 5, -46, 36, -34, 5);
@@ -474,7 +434,6 @@ void drawWinterBareTree(float x, float y,
                         float scale, int type)
 {
     glColor3ub(78, 49, 30);
-
     float h = (type == 1 ? 46.0f : 52.0f) * scale;
     float trunkW = (type == 1 ? 2.0f : 2.8f) * scale;
 
@@ -532,7 +491,6 @@ void drawWinterBareTree(float x, float y,
     glVertex2f(x + 13*scale, y + h*1.10f);
 
     glEnd();
-
     glColor3ub(248, 250, 253);
 
     glLineWidth(2.2f * scale + 0.6f);
@@ -554,11 +512,18 @@ void drawWinterBareTree(float x, float y,
     glEnd();
 }
 
-// ======================================================
-// SKY
-// ======================================================
+void drawRoundTreeTrunk(float x, float y, float scale)
+{
+    glColor3ub(89, 46, 18);
+    glBegin(GL_QUADS);
+    glVertex2f(x - 3 * scale, y);
+    glVertex2f(x + 3 * scale, y);
+    glVertex2f(x + 2 * scale, y + 50 * scale);
+    glVertex2f(x - 2 * scale, y + 50 * scale);
+    glEnd();
+}
 
-void drawSky()
+void drawPineTreeTrunk(float x, float y, float scale)
 {
     if(currentSeason == SPRING)
     {
@@ -688,7 +653,6 @@ void drawClouds()
 void drawRoundTreeTrunk(float x, float y, float scale)
 {
     glColor3ub(89, 46, 18);
-
     glBegin(GL_QUADS);
 
     glVertex2f(x - 3 * scale, y);
@@ -709,21 +673,18 @@ void drawPineTreeTrunk(float x, float y, float scale)
     glVertex2f(x + 5 * scale, y);
     glVertex2f(x + 3.5f * scale, y + 62 * scale);
     glVertex2f(x - 3.5f * scale, y + 62 * scale);
-
     glEnd();
 }
 
 void drawBushyTreeTrunk(float x, float y, float scale)
 {
     glColor3ub(89, 46, 18);
-
     glBegin(GL_QUADS);
 
     glVertex2f(x - 2 * scale, y);
     glVertex2f(x + 2 * scale, y);
     glVertex2f(x + 1.5f * scale, y + 50 * scale);
     glVertex2f(x - 1.5f * scale, y + 50 * scale);
-
     glEnd();
 }
 
@@ -734,9 +695,7 @@ void drawBushyTreeTrunk(float x, float y, float scale)
 void drawBranches(float x, float y, float scale)
 {
     glColor3ub(77, 38, 13);
-
     glLineWidth(5.0f);
-
     glBegin(GL_LINES);
 
     glVertex2f(x, y + 15 * scale);
@@ -1004,19 +963,12 @@ void drawTree(float x, float y,
 
         return;
     }
-
     if(type == 0)
-    {
         drawTreeRound(x, y, scale);
-    }
     else if(type == 1)
-    {
         drawTreePine(x, y, scale);
-    }
     else
-    {
         drawTreeBushy(x, y, scale);
-    }
 }
 
 // ======================================================
@@ -1062,7 +1014,6 @@ void drawForestBgGrass(float x,
                        float scale)
 {
     if(currentSeason == WINTER)
-    {
         glColor3ub(125, 140, 155);
     }
     else if(currentSeason == SUMMER)
@@ -1196,9 +1147,7 @@ void drawFlower(float x, float y,
                 float scale, int colorType)
 {
     glColor3ub(46, 125, 50);
-
     glLineWidth(2.0f);
-
     glBegin(GL_LINES);
 
     glVertex2f(x, y);
@@ -1224,12 +1173,10 @@ void drawFlower(float x, float y,
             glColor3ub(255, 111, 74);
             break;
     }
-
     float petalDist = 2.6f * scale;
     float petalRadius = 1.5f * scale;
 
     float centerY = y + 8 * scale;
-
     for(int p = 0; p < 5; p++)
     {
         float angle =
@@ -1312,9 +1259,7 @@ void drawButterfly(float x, float y,
     );
 
     glColor3ub(66, 40, 14);
-
     glLineWidth(2.0f);
-
     glBegin(GL_LINES);
 
     glVertex2f(
@@ -1396,16 +1341,23 @@ void drawSpringEnvironment()
 }
 
 // ======================================================
-// CLOUD ANIMATION
+// ROAD
 // ======================================================
 
-void updateClouds()
+void drawRoad()
 {
     if(currentSeason != RAINY)
     {
-        cloud1X += 0.08f;
-        cloud2X += 0.05f;
-        cloud3X += 0.06f;
+        // The road stripes are the "reference" layer and still
+        // use worldMove directly so they always match the car's
+        // true travel distance.
+        float lineX = x + worldMove;
+        while(lineX > 150) lineX -= 300;
+        while(lineX < -150) lineX += 300;
+        if(lineX >= -110 && lineX <= 110)
+            rectangle(lineX, -50, lineX + 10, -48);
+    }
+}
 
         if(cloud1X > 115)
             cloud1X = -115;
@@ -1421,23 +1373,44 @@ void updateClouds()
 // ======================================================
 // ROAD GRASS
 // ======================================================
+//
+// Everything about the man is kept together in this one block:
+// where he is, how he ages, and how he is drawn sitting,
+// walking and driving.
+//
+// The age stage is simply the season number, so the man grows
+// older every time a new season is entered with keys 0 - 5:
+//
+//   0  sedlife : young man   - full black hair, clean shaven
+//   1  SPRING  : late 20s    - full black hair, light stubble
+//   2  SUMMER  : mid 30s     - full hair, short black beard
+//   3  RAINY   : mid 40s     - hairline receding, thick beard
+//   4  AUTUMN  : late 50s    - balding (side hair), grey beard
+//   5  WINTER  : old man     - bald head, long white beard
+//
+// His life in this scene runs through five states:
 
-const int ROAD_GRASS_COUNT = 6;
+#define MAN_ON_GRASS      0   // sitting on the grass, waiting
+#define MAN_WALK_TO_CAR   1   // walking over to the car (key F)
+#define MAN_IN_CAR        2   // driving through the seasons
+#define MAN_WALK_TO_BENCH 3   // walking to the bench (key 9)
+#define MAN_ON_BENCH      4   // sitting on the bench - the end
 
 float roadGrassX[ROAD_GRASS_COUNT] = {
     -110, -70, -30, 15, 60, 105
 };
 
-float roadGrassY[ROAD_GRASS_COUNT] = {
-    -54, -46, -52, -44, -55, -48
-};
+float manX = -58.0f;          // feet position while he is outside
+float manY = -30.0f;          // he starts on the grass
+float manWalkSpeed = 0.42f;
 
 float roadGrassScale[ROAD_GRASS_COUNT] = {
     0.28f, 0.22f, 0.30f,
     0.24f, 0.27f, 0.23f
 };
 
-void drawRoadGrass()
+// Skin gets a little paler with age.
+void manSkinColor(int stage)
 {
     if(currentSeason == WINTER)
         return;
@@ -1459,13 +1432,285 @@ void drawRoadGrass()
             roadGrassScale[i]
         );
     }
+
+    // The beard circles get bigger with age.
+    float b = 0.42f;
+    if(stage == 3) b = 0.48f;
+    if(stage >= 4) b = 0.52f;
+
+    circle(hx - 0.85f * hr, hy - 0.32f * hr, b * hr);
+    circle(hx - 0.45f * hr, hy - 0.70f * hr, b * hr);
+    circle(hx,              hy - 0.85f * hr, b * hr);
+    circle(hx + 0.45f * hr, hy - 0.70f * hr, b * hr);
+    circle(hx + 0.80f * hr, hy - 0.30f * hr, b * hr);
+
+    // The last two beards hang below the chin.
+    if(stage == 4)
+    {
+        rectangle(hx - 0.45f * hr, hy - 1.35f * hr, hx + 0.45f * hr, hy - 0.60f * hr);
+        circle(hx, hy - 1.35f * hr, 0.45f * hr);
+    }
+    else if(stage == 5)
+    {
+        rectangle(hx - 0.50f * hr, hy - 1.85f * hr, hx + 0.50f * hr, hy - 0.60f * hr);
+        circle(hx, hy - 1.85f * hr, 0.50f * hr);
+    }
+
+    // Moustache.
+    rectangle(hx + 0.05f * hr, hy - 0.52f * hr, hx + 0.85f * hr, hy - 0.18f * hr);
 }
 
-// ======================================================
-// ROAD
-// ======================================================
+// Face + beard + hair + details. Used by every pose.
+void drawManHead(int stage, float hx, float hy, float hr)
+{
+    // Hair first, so the face covers all but its rim.
+    drawManHairBack(stage, hx, hy, hr);
 
-void drawRoad()
+    // Face.
+    manSkinColor(stage);
+    circle(hx, hy, hr);
+
+    drawManBeard(stage, hx, hy, hr);
+    drawManFringe(stage, hx, hy, hr);
+
+    // Ear (the man faces right, so the ear is on the left side).
+    manSkinColor(stage);
+    circle(hx - hr * 0.92f, hy - hr * 0.10f, hr * 0.26f);
+
+    // Eye.
+    glColor3ub(30, 30, 30);
+    circle(hx + hr * 0.42f, hy + hr * 0.12f, hr * 0.15f);
+
+    // Eyebrow - greys along with the hair.
+    manHairColor(stage);
+    glLineWidth(2.0f);
+    glBegin(GL_LINES);
+    glVertex2f(hx + hr * 0.16f, hy + hr * 0.50f);
+    glVertex2f(hx + hr * 0.74f, hy + hr * 0.44f);
+    glEnd();
+
+    // Age lines on the last two stages.
+    if(stage >= 4)
+    {
+        glColor3ub(196, 165, 145);
+        glLineWidth(1.0f);
+        glBegin(GL_LINES);
+        glVertex2f(hx + hr * 0.18f, hy - hr * 0.12f);
+        glVertex2f(hx + hr * 0.70f, hy - hr * 0.12f);
+        glVertex2f(hx + hr * 0.14f, hy + hr * 0.74f);
+        glVertex2f(hx + hr * 0.76f, hy + hr * 0.72f);
+        glEnd();
+    }
+}
+
+// The man behind the wheel. (x, y) is the car origin, so this
+// is drawn inside the car's own scaled coordinates.
+void drawManInCar(float x, float y)
+{
+    if(!manInCar)
+        return;
+
+    int stage = manAge();
+
+    float hx = x - 0.8f;      // head centre, inside the window
+    float hy = y + 9.4f;
+    float hr = 2.0f;
+
+    // Shoulders behind the glass.
+    manShirtColor(stage);
+    rectangle(hx - 2.6f, y + 7.2f, hx + 2.6f, hy - hr * 0.55f);
+
+    // Neck.
+    manSkinColor(stage);
+    rectangle(hx - 0.7f, hy - hr * 1.25f, hx + 0.7f, hy - hr * 0.40f);
+
+    drawManHead(stage, hx, hy, hr);
+}
+
+// The standing figure. (fx, fy) is where his feet are.
+// He simply slides to where he is going, so the legs and the
+// arm stay in one fixed pose.
+void drawManStanding(float fx, float fy)
+{
+    int stage = manAge();
+
+    float hipY  = fy + 6.5f;
+    float shY   = fy + 12.0f;      // shoulder height
+    float headY = fy + 15.0f;
+    float hr    = 2.6f;
+
+    // Legs, a little apart.
+    manTrouserColor(stage);
+    glLineWidth(5.0f);
+    glBegin(GL_LINES);
+    glVertex2f(fx, hipY); glVertex2f(fx + 1.4f, fy);
+    glVertex2f(fx, hipY); glVertex2f(fx - 1.4f, fy);
+    glEnd();
+
+    // Shoes.
+    glColor3ub(40, 40, 45);
+    circle(fx + 1.4f, fy, 0.9f);
+    circle(fx - 1.4f, fy, 0.9f);
+
+    // Body.
+    manShirtColor(stage);
+    rectangle(fx - 2.2f, hipY, fx + 2.2f, shY);
+
+    // Arm hanging down at his side.
+    manShirtColor(stage);
+    glLineWidth(4.0f);
+    glBegin(GL_LINES);
+    glVertex2f(fx, shY - 0.5f);
+    glVertex2f(fx - 2.0f, hipY + 0.5f);
+    glEnd();
+    manSkinColor(stage);
+    circle(fx - 2.0f, hipY + 0.4f, 0.8f);
+
+    // Neck.
+    manSkinColor(stage);
+    rectangle(fx - 0.9f, shY - 0.4f, fx + 0.9f, headY - hr * 0.55f);
+
+    drawManHead(stage, fx, headY, hr);
+}
+
+// Sitting on the grass, legs stretched out to the right.
+// (x, y) is the spot of grass he is sitting on.
+void drawManSitOnGrass(float x, float y)
+{
+    int stage = manAge();
+
+    float hipY  = y + 2.2f;
+    float shY   = hipY + 5.5f;
+    float headY = shY + 3.0f;
+    float hr    = 2.6f;
+
+    // Legs stretched forward.
+    manTrouserColor(stage);
+    glLineWidth(5.0f);
+    glBegin(GL_LINES);
+    glVertex2f(x, hipY);        glVertex2f(x + 7.5f, y + 1.0f);
+    glVertex2f(x, hipY - 0.8f); glVertex2f(x + 7.0f, y + 0.4f);
+    glEnd();
+    glColor3ub(40, 40, 45);
+    circle(x + 7.8f, y + 1.0f, 0.9f);
+
+    // Body.
+    manShirtColor(stage);
+    rectangle(x - 2.0f, hipY, x + 2.2f, shY);
+
+    // Arm resting back on the grass.
+    manShirtColor(stage);
+    glLineWidth(4.0f);
+    glBegin(GL_LINES);
+    glVertex2f(x, shY - 0.8f);
+    glVertex2f(x - 3.4f, hipY - 1.2f);
+    glEnd();
+    manSkinColor(stage);
+    circle(x - 3.6f, hipY - 1.4f, 0.8f);
+
+    // Neck.
+    manSkinColor(stage);
+    rectangle(x - 0.9f, shY - 0.4f, x + 0.9f, headY - hr * 0.55f);
+
+    drawManHead(stage, x, headY, hr);
+}
+
+// Sitting on the bench. seatY is the top of the seat,
+// groundY is where his shoes rest.
+void drawManSitOnBench(float x, float seatY, float groundY)
+{
+    int stage = manAge();
+
+    float hipY  = seatY + 1.6f;
+    float shY   = hipY + 5.5f;
+    float headY = shY + 3.0f;
+    float hr    = 2.6f;
+
+    // Thigh forward, then the shin down to the ground.
+    manTrouserColor(stage);
+    glLineWidth(5.0f);
+    glBegin(GL_LINES);
+    glVertex2f(x, hipY);        glVertex2f(x + 5.0f, hipY - 0.4f);
+    glVertex2f(x + 5.0f, hipY); glVertex2f(x + 5.6f, groundY);
+    glEnd();
+    glColor3ub(40, 40, 45);
+    circle(x + 5.8f, groundY + 0.4f, 0.9f);
+
+    // Body.
+    manShirtColor(stage);
+    rectangle(x - 2.0f, hipY, x + 2.2f, shY);
+
+    // Arm resting on his knee.
+    manShirtColor(stage);
+    glLineWidth(4.0f);
+    glBegin(GL_LINES);
+    glVertex2f(x, shY - 0.8f);
+    glVertex2f(x + 3.6f, hipY + 0.4f);
+    glEnd();
+    manSkinColor(stage);
+    circle(x + 3.8f, hipY + 0.3f, 0.8f);
+
+    // Neck.
+    manSkinColor(stage);
+    rectangle(x - 0.9f, shY - 0.4f, x + 0.9f, headY - hr * 0.55f);
+
+    drawManHead(stage, x, headY, hr);
+}
+
+// The man whenever he is NOT inside the car.
+void drawManOutside()
+{
+    if(manState == MAN_ON_GRASS)
+        drawManSitOnGrass(manX, manY);
+    else if(manState == MAN_WALK_TO_CAR || manState == MAN_WALK_TO_BENCH)
+        drawManStanding(manX, manY);
+    else if(manState == MAN_ON_BENCH)
+        drawManSitOnBench(benchX - 1.0f, benchY + 8.0f, benchY);
+}
+
+// Walks one step towards a target, and switches state on arrival.
+void manWalkTowards(float tx, float ty, int nextState)
+{
+    float dx = tx - manX;
+    float dy = ty - manY;
+    float d = (float)sqrt(dx * dx + dy * dy);
+
+    if(d <= manWalkSpeed)
+    {
+        manX = tx;
+        manY = ty;
+        manState = nextState;
+        return;
+    }
+    manX += manWalkSpeed * dx / d;
+    manY += manWalkSpeed * dy / d;
+}
+
+void updateMan()
+{
+    if(manState == MAN_WALK_TO_CAR)
+    {
+        // He comes down the grass and reaches the car from its
+        // upper side, so he is always drawn behind it.
+        manWalkTowards(carX - 5.0f, carY + 6.0f, MAN_IN_CAR);
+        if(manState == MAN_IN_CAR)
+        {
+            // He is inside now: the engine starts and the car rolls.
+            manInCar = true;
+            journeyStarted = true;
+            worldSpeed = 0.0f;
+        }
+    }
+    else if(manState == MAN_WALK_TO_BENCH)
+    {
+        manWalkTowards(benchX - 5.0f, benchY, MAN_ON_BENCH);
+    }
+}
+
+// After key 9: the car brakes, the bench slides in with the
+// world, and when everything has stopped the man steps out of
+// the upper side of the car and walks over to it.
+void updateEnding()
 {
     glColor3ub(55, 55, 55);
 
@@ -1505,7 +1750,9 @@ void drawRoad()
 // CAR
 // ======================================================
 
-void drawCar(float x, float y)
+// The car shape, drawn around its own origin. drawCar() below
+// puts it on the road and scales the whole thing up.
+void drawCarShape(float x, float y)
 {
     glColor3ub(200, 30, 30);
 
@@ -1517,7 +1764,6 @@ void drawCar(float x, float y)
     );
 
     glColor3ub(180, 20, 20);
-
     glBegin(GL_QUADS);
 
     glVertex2f(x - 6, y + 7);
@@ -1528,14 +1774,11 @@ void drawCar(float x, float y)
     glEnd();
 
     glColor3ub(200, 30, 30);
-
     glBegin(GL_QUADS);
-
     glVertex2f(x + 8, y + 7);
     glVertex2f(x + 11, y + 7);
     glVertex2f(x + 13, y + 3);
     glVertex2f(x + 11, y + 2);
-
     glEnd();
 
     glColor3ub(120, 200, 230);
@@ -1550,7 +1793,6 @@ void drawCar(float x, float y)
     glColor3ub(180, 20, 20);
 
     glLineWidth(2.0f);
-
     glBegin(GL_LINES);
 
     glVertex2f(x, y + 7.5f);
@@ -1576,7 +1818,6 @@ void drawCar(float x, float y)
     );
 
     glColor3ub(20, 20, 20);
-
     circle(x - 7, y, 3.2f);
     circle(x + 7, y, 3.2f);
 
@@ -1593,7 +1834,6 @@ void drawCar(float x, float y)
             angle + i * PI / 2.0f;
 
         glBegin(GL_LINES);
-
         glVertex2f(x - 7, y);
 
         glVertex2f(
@@ -1612,6 +1852,15 @@ void drawCar(float x, float y)
     }
 }
 
+void drawCar(float x, float y)
+{
+    glPushMatrix();
+    glTranslatef(x, y, 0.0f);
+    glScalef(carScale, carScale, 1.0f);
+    drawCarShape(0.0f, 0.0f);
+    glPopMatrix();
+}
+
 // ======================================================
 // CAVE / TUNNEL
 // ======================================================
@@ -1624,38 +1873,17 @@ void drawCave()
     float x = movingTunnelX;
 
     glColor3ub(75, 75, 75);
-
     glBegin(GL_POLYGON);
-
-    glVertex2f(x - 20, -40);
-    glVertex2f(x - 17, -25);
-    glVertex2f(x - 12, -13);
-    glVertex2f(x - 5, -7);
-    glVertex2f(x + 5, -7);
-    glVertex2f(x + 13, -13);
-    glVertex2f(x + 18, -25);
-    glVertex2f(x + 20, -40);
-
+    glVertex2f(x - 27, -40); glVertex2f(x - 23, -22); glVertex2f(x - 16, -10); glVertex2f(x - 7, -3);
+    glVertex2f(x + 7, -3);   glVertex2f(x + 17, -10); glVertex2f(x + 24, -22); glVertex2f(x + 27, -40);
     glEnd();
 
     glColor3ub(5, 5, 5);
-
     glBegin(GL_POLYGON);
-
-    glVertex2f(x - 9, -40);
-    glVertex2f(x - 9, -25);
-    glVertex2f(x - 6, -19);
-    glVertex2f(x, -16);
-    glVertex2f(x + 6, -19);
-    glVertex2f(x + 9, -25);
-    glVertex2f(x + 9, -40);
-
+    glVertex2f(x - 13, -40); glVertex2f(x - 13, -24); glVertex2f(x - 8, -16);
+    glVertex2f(x, -12);      glVertex2f(x + 8, -16); glVertex2f(x + 13, -24); glVertex2f(x + 13, -40);
     glEnd();
 }
-
-// ======================================================
-// TUNNEL DARKNESS
-// ======================================================
 
 void drawTunnelDarkness()
 {
@@ -1724,11 +1952,19 @@ void drawTunnelDarkness()
 }
 
 // ======================================================
-// MOVING WORLD
+// WORLD & TRANSITION UPDATE
 // ======================================================
 
+// Advances every layer's own offset by worldSpeed times that
+// layer's speed multiplier. Layers with a multiplier below 1.0
+// scroll slower (read as "farther away"); above 1.0 scroll
+// faster (read as "closer to the camera").
 void updateWorld()
 {
+    // Nothing moves until the man is in the car.
+    if(!journeyStarted)
+        return;
+
     if(transitionStage == 0)
     {
         worldMove -= worldSpeed;
@@ -1739,23 +1975,16 @@ void updateWorld()
     }
 }
 
-// ======================================================
-// SEASON TRANSITION
-// ======================================================
-
 void updateSeasonTransition()
 {
     if(!changingSeason)
         return;
-
     if(transitionStage == 1)
     {
         transitionCarX += transitionCarSpeed;
-
-        if(transitionCarX >= movingTunnelX - 12)
+        if(transitionCarX >= movingTunnelX - 16)
             transitionStage = 2;
     }
-
     else if(transitionStage == 2)
     {
         carInsideTunnel = true;
@@ -1764,17 +1993,14 @@ void updateSeasonTransition()
 
         seasonScreenTimer = 0.0f;
     }
-
     else if(transitionStage == 3)
     {
         seasonScreenTimer += 0.05f;
-
         if(seasonScreenTimer >= 1.0f)
         {
             currentSeason = targetSeason;
 
             carInsideTunnel = false;
-
             tunnelOnRight = false;
             tunnelOnLeft = true;
 
@@ -1786,21 +2012,26 @@ void updateSeasonTransition()
             transitionStage = 4;
         }
     }
-
     else if(transitionStage == 4)
     {
         transitionCarX += transitionCarSpeed;
-
         if(transitionCarX >= 0.0f)
         {
             transitionCarX = carX;
-
             transitionStage = 5;
-
+            // Reset every layer's offset together so the new
+            // season's background starts clean and in sync.
             worldMove = 0.0f;
+            forestMove = 0.0f;
+            grassMove = 0.0f;
+            bgGrassMove = 0.0f;
+            flowerMove = 0.0f;
+            butterflyMove = 0.0f;
+            mountainMove = 0.0f;
+            roadGrassMove = 0.0f;
+            winterBgMove = 0.0f;
         }
     }
-
     else if(transitionStage == 5)
     {
         worldMove -= worldSpeed;
@@ -1809,24 +2040,19 @@ void updateSeasonTransition()
             worldMove += 300;
 
         movingTunnelX -= tunnelExitSpeed;
-
         transitionCarX = carX;
-
         if(movingTunnelX < -120.0f)
             transitionStage = 6;
     }
-
     else if(transitionStage == 6)
     {
         tunnelVisible = false;
 
         tunnelOnLeft = false;
         tunnelOnRight = false;
-
         changingSeason = false;
 
         transitionStage = 0;
-
         transitionCarX = carX;
     }
 }
@@ -1840,17 +2066,15 @@ void display()
     glClear(GL_COLOR_BUFFER_BIT);
 
     glLoadIdentity();
-
     drawSky();
     drawSun();
     drawClouds();
-
     if(currentSeason == WINTER)
     {
         drawWinterMountains();
         drawWinterBackground();
     }
-
+        drawMountains();
     drawGround();
 
     drawRoad();
@@ -1898,7 +2122,7 @@ void display()
     }
 
     drawTunnelDarkness();
-
+    drawEndMessage();
     glutSwapBuffers();
 }
 
@@ -1910,31 +2134,33 @@ void update(int value)
 {
     if(!paused)
     {
+        // The car speeds up smoothly once the man is in it.
+        if(journeyStarted && !endingStarted && worldSpeed < worldSpeedMax)
+        {
+            worldSpeed += worldAcceleration;
+            if(worldSpeed > worldSpeedMax)
+                worldSpeed = worldSpeedMax;
+        }
+
+        updateEnding();
         updateWorld();
+        updateMan();
 
-        wheelRotation -= 15.0f;
-
+        // The wheels turn only as fast as the car really moves,
+        // so they stand still before and after the journey.
+        wheelRotation -= 30.0f * worldSpeed;
         if(wheelRotation < 0)
             wheelRotation += 360.0f;
 
         if(changingSeason)
-        {
             updateSeasonTransition();
-        }
-
         updateClouds();
-
         if(currentSeason == SPRING)
-        {
             butterflyTime += 0.05f;
-        }
-
         if(currentSeason == WINTER)
-        {
             updateSnow();
         }
     }
-
     glutPostRedisplay();
 
     glutTimerFunc(
@@ -1948,7 +2174,9 @@ void update(int value)
 // KEYBOARD
 // ======================================================
 
-void keyboard(unsigned char key, int x, int y)
+// One helper for all six season keys. Seasons can only be
+// changed while the man is driving.
+void startSeasonChange(int season)
 {
     if(key == '0')
     {
@@ -1994,9 +2222,16 @@ void keyboard(unsigned char key, int x, int y)
 
             carInsideTunnel = false;
 
-            transitionCarX = carX;
-        }
-    }
+    targetSeason = season;
+    changingSeason = true;
+    transitionStage = 1;
+    tunnelVisible = true;
+    tunnelOnRight = true;
+    tunnelOnLeft = false;
+    movingTunnelX = tunnelRightX;
+    carInsideTunnel = false;
+    transitionCarX = carX;
+}
 
     else if(key == '2')
     {
@@ -2021,8 +2256,7 @@ void keyboard(unsigned char key, int x, int y)
             transitionCarX = carX;
         }
     }
-
-    else if(key == '5')
+    else if(key == '8')
     {
         if(currentSeason != WINTER &&
            !changingSeason)
@@ -2045,16 +2279,22 @@ void keyboard(unsigned char key, int x, int y)
             transitionCarX = carX;
         }
     }
-
+    else if(key == '0')
+        startSeasonChange(sedlife);
+    else if(key == '1')
+        startSeasonChange(SPRING);
+    else if(key == '2')
+        startSeasonChange(SUMMER);
+    else if(key == '3')
+        startSeasonChange(RAINY);
+    else if(key == '4')
+        startSeasonChange(AUTUMN);
+    else if(key == '5')
+        startSeasonChange(WINTER);
     else if(key == ' ')
-    {
         paused = !paused;
-    }
-
     else if(key == 27)
-    {
         exit(0);
-    }
 
     glutPostRedisplay();
 }
@@ -2118,9 +2358,7 @@ int main(int argc, char** argv)
     );
 
     init();
-
     glutDisplayFunc(display);
-
     glutKeyboardFunc(keyboard);
 
     glutTimerFunc(
@@ -2130,6 +2368,5 @@ int main(int argc, char** argv)
     );
 
     glutMainLoop();
-
     return 0;
 }
