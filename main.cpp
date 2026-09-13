@@ -317,12 +317,11 @@ float cloud4X = -50;
 float cloud5X = 40;
 
 // ======================================================
-// EXTRA EFFECTS STATE  (J / K / M / N)
+// EXTRA EFFECTS STATE  (J / K / N)
 // ======================================================
 // Four independent, button-triggered scene flourishes:
 //   J - a duck family waddles across the road
 //   K - a temporary burst of extra butterflies (spring only)
-//   M - a wind gust that sways grass/flowers/bg-tufts + clouds
 //   N - a short rain shower that clears into a rainbow arc
 // Each is a simple "active flag + timer" state, same pattern as
 // the rest of the file (seasonScreenTimer, updateEnding, etc.).
@@ -335,6 +334,20 @@ bool duckActive = false;
 float duckX = 0.0f;
 float duckY = -38.0f;
 float duckTimer = 0.0f;
+
+// --- Duck crossing brings the car to a halt ---
+// The moment the family steps onto the road the car brakes to a
+// full stop on its own, waits for them to finish crossing, and
+// then sits there until the player presses S to pull away again.
+//   duckStopActive    : true from the first step onto the road
+//                       until S is pressed - blocks the normal
+//                       acceleration and actively brakes.
+//   duckWaitingResume : true once the ducks are clear, so S is
+//                       only accepted after they've actually
+//                       finished crossing (not mid-road).
+bool duckStopActive = false;
+bool duckWaitingResume = false;
+float duckBrake = 0.02f;   // how hard the car brakes for them
 
 const int DUCKLING_COUNT = 3;
 
@@ -365,12 +378,6 @@ float flockY = 40.0f;
 float birdOffsetX[BIRD_COUNT] = { 0.0f, -4.5f, -4.5f, -9.0f, -9.0f, -13.5f };
 float birdOffsetY[BIRD_COUNT] = { 0.0f,  2.2f, -2.2f,  4.4f, -4.4f,  6.2f };
 float birdFlapPhase[BIRD_COUNT] = { 0.0f, 1.1f, 2.3f, 3.4f, 4.6f, 5.7f };
-
-// --- Wind gust ---
-bool windActive = false;
-float windTimer = 0.0f;
-float windDuration = 3.0f;
-float windTime = 0.0f;
 
 // --- Rain + rainbow ---
 // N is now a toggle instead of a fixed-length effect:
@@ -523,29 +530,6 @@ void shadedColor(int r, int g, int b, float factor)
     glColor3ub((GLubyte)nr, (GLubyte)ng, (GLubyte)nb);
 }
 
-// Small side-to-side sway used by grass/flowers/bg-tufts while a
-// wind gust is active. phaseSeed is normally derived from the
-// tuft's own x position, so neighboring tufts sway slightly out
-// of sync instead of all moving in lockstep. Returns 0 whenever
-// no gust is active, so it is safe to call unconditionally.
-float getWindSway(float phaseSeed)
-{
-    if(!windActive)
-        return 0.0f;
-
-    // Envelope: ramps up quickly, holds, ramps back down - so the
-    // gust doesn't snap on/off abruptly.
-    float envelope = 1.0f;
-    if(windTimer < 0.4f)
-        envelope = windTimer / 0.4f;
-    else if(windTimer > windDuration - 0.6f)
-        envelope = (windDuration - windTimer) / 0.6f;
-    if(envelope < 0.0f) envelope = 0.0f;
-    if(envelope > 1.0f) envelope = 1.0f;
-
-    return envelope * 3.0f * (float)sin(windTime * 10.0f + phaseSeed);
-}
-
 // ======================================================
 // WINTER SNOW
 // ======================================================
@@ -654,13 +638,11 @@ void drawClouds()
 
 void updateClouds()
 {
-    float gustMult = windActive ? 3.0f : 1.0f;
-
     if(currentSeason != RAINY)
     {
-        cloud1X += 0.08f * gustMult;
-        cloud2X += 0.05f * gustMult;
-        cloud3X += 0.06f * gustMult;
+        cloud1X += 0.08f;
+        cloud2X += 0.05f;
+        cloud3X += 0.06f;
         if(cloud1X > 115) cloud1X = -115;
         if(cloud2X > 115) cloud2X = -115;
         if(cloud3X > 115) cloud3X = -115;
@@ -984,8 +966,6 @@ void drawForest()
 
 void drawForestBgGrass(float x, float y, float scale)
 {
-    x += getWindSway(x * 0.17f);
-
     if(currentSeason == WINTER)
         glColor3ub(125, 140, 155);
     else if(currentSeason == SUMMER)
@@ -1017,8 +997,6 @@ void drawForestBg()
 
 void drawGrass(float x, float y, float scale)
 {
-    x += getWindSway(x * 0.15f + y * 0.05f);
-
     if(currentSeason == WINTER)
         return;
     if(currentSeason == SUMMER)
@@ -1066,8 +1044,6 @@ void drawRoadGrass()
 
 void drawFlower(float x, float y, float scale, int colorType)
 {
-    x += getWindSway(x * 0.12f + 1.7f);
-
     glColor3ub(46, 125, 50);
     glLineWidth(2.0f);
     glBegin(GL_LINES);
@@ -1251,12 +1227,16 @@ void startDuckCrossing()
     duckTrailHead = 0;
     duckTrailCount = 0;
 
-    // Keep the family off to one side so it doesn't walk straight
-    // through the car, which always sits near x = 0.
-    if(rand() % 2 == 0)
-        duckX = -85.0f + (float)(rand() % 30);
-    else
-        duckX = 30.0f + (float)(rand() % 30);
+    // The family steps onto the road directly ahead of the car
+    // (the car's nose sits around carX + 19 at the current scale),
+    // so they're genuinely blocking the way rather than waddling
+    // past harmlessly off to one side.
+    duckX = carX + 24.0f;
+
+    // Seeing them, the driver hits the brakes: the car stops on
+    // its own and won't move again until S is pressed.
+    duckStopActive = true;
+    duckWaitingResume = false;
 }
 
 void updateDuckCrossing()
@@ -1278,7 +1258,14 @@ void updateDuckCrossing()
         duckTrailCount++;
 
     if(duckY < -60.0f)
+    {
         duckActive = false;
+
+        // They're off the road now, so the car is free to go -
+        // but only once the player actually presses S.
+        if(duckStopActive)
+            duckWaitingResume = true;
+    }
 }
 
 // isParent switches between the drake's proper mallard colouring
@@ -1514,36 +1501,6 @@ void drawBirdFlock()
         float flap = (float)sin(birdTimer * 10.0f + birdFlapPhase[i]);
 
         drawBird(bx, by, 1.0f, i, flap);
-    }
-}
-
-// --- M: wind gust -------------------------------------------------
-// Most of the actual sway lives in getWindSway(), which the
-// grass/flower/bg-tuft draw functions already call every frame.
-// This just drives the timer and the "closer, faster clouds"
-// boost in updateClouds().
-
-void startWindGust()
-{
-    if(windActive)
-        return;
-
-    windActive = true;
-    windTimer = 0.0f;
-}
-
-void updateWindGust()
-{
-    if(!windActive)
-        return;
-
-    windTimer += 0.05f;
-    windTime += 0.05f;
-
-    if(windTimer >= windDuration)
-    {
-        windActive = false;
-        windTime = 0.0f;
     }
 }
 
@@ -2374,12 +2331,12 @@ void drawHintBox()
 
     // box
     glColor3ub(255, 255, 240);
-    rectangle(-96, 0, -40, 96);
+    rectangle(-96, -14, -40, 96);
     glColor3ub(40, 40, 40);
     glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
-    glVertex2f(-96, 0);
-    glVertex2f(-40, 0);
+    glVertex2f(-96, -14);
+    glVertex2f(-40, -14);
     glVertex2f(-40, 96);
     glVertex2f(-96, 96);
     glEnd();
@@ -2390,13 +2347,14 @@ void drawHintBox()
     drawText(-93, 80, "0 - 5   SEASONS");
     drawText(-93, 72, "9   END OF JOURNEY");
     drawText(-93, 64, "8   LAST WORDS");
-    drawText(-93, 52, "WHILE DRIVING:");
+    drawText(-93, 52, "WHILE DRIVING (SPRING):");
     drawText(-93, 44, "J   DUCKS CROSS ROAD");
-    drawText(-93, 36, "K   BIRDS FLYING");
-    drawText(-93, 28, "M   WIND GUST");
+    drawText(-93, 36, "S   DRIVE ON AFTER DUCKS");
+    drawText(-93, 28, "K   BIRDS FLYING");
     drawText(-93, 20, "N   RAINBOW (TOGGLE)");
     drawText(-93, 12, "V   FIRST-PERSON VIEW");
-    drawText(-93, 4,  "A/D STEER LEFT/RIGHT");
+    drawText(-93, 0,  "ANY SEASON:");
+    drawText(-93, -8, "A/D STEER LEFT/RIGHT");
 }
 
 // ======================================================
@@ -2541,6 +2499,13 @@ void updateSeasonTransition()
 void startPovToggle()
 {
     if(povBlinkStage != 0)
+        return;
+
+    // The pov is a spring-only view. Entering it is blocked in
+    // every other season (and in the default sedlife state), but
+    // leaving it is always allowed - otherwise a season change
+    // while inside the pov could strand you in there.
+    if(!povActive && currentSeason != SPRING)
         return;
 
     povBlinkStage = povActive ? 2 : 1;
@@ -3129,17 +3094,20 @@ void drawPovScene()
     drawPovHorizonGlow();
     drawPovSunRays();
 
-    // Distant mountains behind the tree line - the same
-    // drawMountains()/drawWinterMountains() the third-person view
-    // uses, so they're already season-coloured and already
-    // scrolling via the shared mountainMove offset (which keeps
-    // advancing in the background the whole time you're driving,
-    // pov or not). Kept outside the steering-shift block below,
-    // same as the sky/clouds, since something this far away
-    // shouldn't visibly swing with a bit of A/D steering.
-    if(currentSeason == WINTER)
-        drawWinterMountains();
+    // Distant mountains behind the tree line, reusing the same
+    // season-coloured drawMountains() the third-person view uses.
+    // They deliberately stay STILL here: mountainMove is saved,
+    // zeroed for the draw, then restored, so the shared offset
+    // keeps advancing normally for the third-person view while
+    // the pov renders them at a fixed position. (The pov is
+    // spring-only, so the winter-mountain variant never applies.)
+    // Kept outside the steering-shift block below, same as the
+    // sky/clouds, since something this far away shouldn't swing
+    // with a bit of A/D steering.
+    float savedMountainMove = mountainMove;
+    mountainMove = 0.0f;
     drawMountains();
+    mountainMove = savedMountainMove;
 
     // The whole outdoor layer shifts opposite to the car's lane
     // position, so steering with A/D visibly moves the road and
@@ -3165,6 +3133,22 @@ void drawPovScene()
     glPopMatrix();
 }
 
+// A small on-screen prompt while the car is halted for the duck
+// family - first telling you to wait, then that S will pull away
+// again once they're clear. Drawn in both the normal view and the
+// pov, so the message isn't lost if you're in first-person.
+void drawDuckStopPrompt()
+{
+    if(!duckStopActive)
+        return;
+
+    glColor3ub(255, 255, 255);
+    if(duckWaitingResume)
+        drawText(-26, 74, "PRESS  S  TO DRIVE ON");
+    else
+        drawText(-30, 74, "DUCKS CROSSING - WAIT...");
+}
+
 // ======================================================
 // DISPLAY
 // ======================================================
@@ -3188,6 +3172,7 @@ void display()
     if(povActive)
     {
         drawPovScene();
+        drawDuckStopPrompt();
         glutSwapBuffers();
         return;
     }
@@ -3230,6 +3215,7 @@ void display()
     else
         drawCar(carX, carY);
     drawHintBox();
+    drawDuckStopPrompt();
     drawTunnelDarkness();
     drawEndMessage();
     glutSwapBuffers();
@@ -3243,12 +3229,25 @@ void update(int value)
 {
     if(!paused)
     {
-        // The car speeds up smoothly once the man is in it.
-        if(journeyStarted && !endingStarted && worldSpeed < worldSpeedMax)
+        // The car speeds up smoothly once the man is in it -
+        // unless it's currently stopped for a duck crossing.
+        if(journeyStarted && !endingStarted && !duckStopActive
+           && worldSpeed < worldSpeedMax)
         {
             worldSpeed += worldAcceleration;
             if(worldSpeed > worldSpeedMax)
                 worldSpeed = worldSpeedMax;
+        }
+
+        // Braking for the ducks: the car slows to a complete stop
+        // and stays there until S is pressed. Skipped once the
+        // ending has started, since updateEnding() is already
+        // running its own braking there.
+        if(duckStopActive && !endingStarted && worldSpeed > 0.0f)
+        {
+            worldSpeed -= duckBrake;
+            if(worldSpeed < 0.0f)
+                worldSpeed = 0.0f;
         }
 
         updateEnding();
@@ -3284,7 +3283,6 @@ void update(int value)
 
         updateDuckCrossing();
         updateBirdFlock();
-        updateWindGust();
         updateRainbowEffect();
         updatePovBlink();
         if(povActive)
@@ -3298,12 +3296,17 @@ void update(int value)
 // KEYBOARD
 // ======================================================
 
-// Shared gate for the effect keys (J/K/L/M/N): only while the
-// man is actually driving and nothing else is mid-transition,
-// same restriction as the season keys below.
+// Shared gate for the effect keys (J/K/N/V): only while the
+// man is actually driving, nothing else is mid-transition, and
+// only during SPRING - the ducks, birds, rainbow and first-person
+// view are all spring-only flourishes, so none of them fire in
+// the default sedlife state or in summer/rainy/autumn/winter.
+// A/D steering deliberately does NOT go through this gate, since
+// steering stays available in every season.
 bool canTriggerEffect()
 {
-    return (manState == MAN_IN_CAR && !endingStarted && !changingSeason);
+    return (manState == MAN_IN_CAR && !endingStarted && !changingSeason
+            && currentSeason == SPRING);
 }
 
 // One helper for all six season keys. Seasons can only be
@@ -3324,6 +3327,25 @@ void startSeasonChange(int season)
     movingTunnelX = tunnelRightX;
     carInsideTunnel = false;
     transitionCarX = carX;
+
+    // The pov is spring-only, and the tunnel transition has to be
+    // watched from the third-person view anyway, so leaving spring
+    // (or entering it) always drops straight back out of the pov
+    // rather than leaving you looking at a pov of the wrong season.
+    povActive = false;
+    povBlinkStage = 0;
+    povBlinkTimer = 0.0f;
+
+    // The J/K/N flourishes are spring-only too, so anything still
+    // playing is cleared here - otherwise a duck family mid-cross
+    // (or a held rainbow) would carry straight over into summer or
+    // winter, where it has no business being.
+    duckActive = false;
+    duckStopActive = false;
+    duckWaitingResume = false;
+    birdActive = false;
+    rainbowState = RAINBOW_IDLE;
+    rainbowTimer = 0.0f;
 }
 
 void keyboard(unsigned char key, int x, int y)
@@ -3342,6 +3364,12 @@ void keyboard(unsigned char key, int x, int y)
             endingStarted = true;
             benchVisible = true;
             benchX = 72.0f;
+
+            // Hand braking over to updateEnding() - clear any duck
+            // hold so the two don't fight over worldSpeed.
+            duckActive = false;
+            duckStopActive = false;
+            duckWaitingResume = false;
         }
     }
     else if(key == '8')
@@ -3372,11 +3400,6 @@ void keyboard(unsigned char key, int x, int y)
         if(canTriggerEffect())
             startBirdFlock();
     }
-    else if(key == 'm' || key == 'M')
-    {
-        if(canTriggerEffect())
-            startWindGust();
-    }
     else if(key == 'n' || key == 'N')
     {
         if(canTriggerEffect())
@@ -3384,12 +3407,23 @@ void keyboard(unsigned char key, int x, int y)
     }
     else if(key == 'v' || key == 'V')
     {
-        // Same driving-only gate as J/K/M/N. It also covers
+        // Same driving-only gate as J/K/N. It also covers
         // toggling back OUT of the pov, since being in the pov
         // doesn't change manState - the man is still "in the car"
         // the whole time.
         if(canTriggerEffect())
             startPovToggle();
+    }
+    else if(key == 's' || key == 'S')
+    {
+        // Pull away again after a duck crossing. Deliberately
+        // ignored while they're still on the road - you have to
+        // wait for them to finish before S does anything.
+        if(duckWaitingResume)
+        {
+            duckStopActive = false;
+            duckWaitingResume = false;
+        }
     }
     else if(key == 'a' || key == 'A')
         steerLeftDown = true;
