@@ -273,6 +273,20 @@ float butterflyScale[BUTTERFLY_COUNT] = {
 float butterflyTime = 0.0f;
 
 // ======================================================
+// BEE HIVE  (ambient, no button - always present in spring)
+// ======================================================
+// A small paper-lantern hive tucked into the branches of one
+// specific round tree, with a few bees orbiting the entrance.
+// Purely decorative background detail, drawn automatically
+// whenever it's spring - no key triggers it.
+
+const int BEE_HIVE_TREE_INDEX = 1;   // must be a round tree (type 0)
+
+const int BEE_COUNT = 4;
+float beePhase[BEE_COUNT] = { 0.0f, 1.7f, 3.4f, 5.1f };
+float beeOrbitTime = 0.0f;
+
+// ======================================================
 // WINTER SNOW DATA
 // ======================================================
 
@@ -301,6 +315,118 @@ float cloud2X = -10;
 float cloud3X = 60;
 float cloud4X = -50;
 float cloud5X = 40;
+
+// ======================================================
+// EXTRA EFFECTS STATE  (J / K / M / N)
+// ======================================================
+// Four independent, button-triggered scene flourishes:
+//   J - a duck family waddles across the road
+//   K - a temporary burst of extra butterflies (spring only)
+//   M - a wind gust that sways grass/flowers/bg-tufts + clouds
+//   N - a short rain shower that clears into a rainbow arc
+// Each is a simple "active flag + timer" state, same pattern as
+// the rest of the file (seasonScreenTimer, updateEnding, etc.).
+// All of them are screen-space effects (not tied to worldMove),
+// since they are short foreground/overlay events rather than
+// part of the scrolling background.
+
+// --- Duck / animal crossing ---
+bool duckActive = false;
+float duckX = 0.0f;
+float duckY = -38.0f;
+float duckTimer = 0.0f;
+
+const int DUCKLING_COUNT = 3;
+
+// Each duckling no longer sits at a fixed offset (which made the
+// whole family slide as one rigid block). Instead the parent's
+// exact path is recorded every frame into a short trail, and each
+// duckling reads its position from a few frames back in that
+// trail - so they genuinely follow in the parent's footsteps, one
+// behind the other, the way a real duck line moves.
+#define DUCK_TRAIL_LEN 150
+float duckTrailX[DUCK_TRAIL_LEN];
+float duckTrailY[DUCK_TRAIL_LEN];
+int duckTrailHead = 0;     // index the NEXT sample will be written to
+int duckTrailCount = 0;    // how many valid samples exist so far
+
+float ducklingLateral[DUCKLING_COUNT] = { -1.2f, 1.0f, -0.6f };   // small single-file stagger
+int ducklingDelayFrames[DUCKLING_COUNT] = { 9, 18, 28 };           // how far back in the trail each one reads
+
+// --- Bird flock flying across the sky ---
+const int BIRD_COUNT = 6;
+bool birdActive = false;
+float birdTimer = 0.0f;
+float flockX = -140.0f;
+float flockY = 40.0f;
+
+// Offsets behind/around the lead bird, forming a loose V. Colors
+// cycle blue/yellow/red/white across the six birds.
+float birdOffsetX[BIRD_COUNT] = { 0.0f, -4.5f, -4.5f, -9.0f, -9.0f, -13.5f };
+float birdOffsetY[BIRD_COUNT] = { 0.0f,  2.2f, -2.2f,  4.4f, -4.4f,  6.2f };
+float birdFlapPhase[BIRD_COUNT] = { 0.0f, 1.1f, 2.3f, 3.4f, 4.6f, 5.7f };
+
+// --- Wind gust ---
+bool windActive = false;
+float windTimer = 0.0f;
+float windDuration = 3.0f;
+float windTime = 0.0f;
+
+// --- Rain + rainbow ---
+// N is now a toggle instead of a fixed-length effect:
+//   1st press : rain falls, then the rainbow rises and HOLDS
+//               (stays on screen indefinitely)
+//   2nd press : the rainbow fades back out and the effect ends
+#define RAINBOW_IDLE  0   // nothing showing
+#define RAINBOW_RAIN  1   // rain falling, rainbow not visible yet
+#define RAINBOW_RISE  2   // rain has cleared, rainbow fading in
+#define RAINBOW_HOLD  3   // rainbow fully visible, stays until toggled off
+#define RAINBOW_FALL  4   // rainbow fading out after the 2nd press
+
+int rainbowState = RAINBOW_IDLE;
+float rainbowTimer = 0.0f;         // time spent in the current phase
+float rainRainDuration = 3.0f;     // how long the rain falls for
+float rainbowRiseDuration = 1.5f;  // how long the rainbow takes to fade in
+float rainbowFadeDuration = 1.5f;  // how long it takes to fade out on toggle-off
+
+const int RAIN_DROP_COUNT = 60;
+float rainDropX[RAIN_DROP_COUNT];
+float rainDropY[RAIN_DROP_COUNT];
+float rainDropSpeed[RAIN_DROP_COUNT];
+
+// --- V: first-person POV, with a quick black blink ---
+// A short black flash (like an eye-blink), then the view cuts to
+// a first-person shot from inside the car: hands on the wheel,
+// looking out through the windshield at the road and forest going
+// by. Pressing V again blinks back to the normal third-person
+// scene. It is purely a screen-space overlay drawn at the very
+// end of display() - it never touches worldMove or any of the
+// driving/season state underneath, so the journey keeps going
+// exactly the same whether you're looking at it or not.
+bool povActive = false;
+
+// 0 = not blinking, 1 = blinking INTO the pov, 2 = blinking back
+// OUT to the normal third-person view.
+int povBlinkStage = 0;
+float povBlinkTimer = 0.0f;
+float povBlinkDuration = 1.0f;   // ~0.3s at the 0.05/frame pace used elsewhere
+
+float povWheelTime = 0.0f;       // drives the road-dash scroll and the wheel's idle sway
+
+// ======================================================
+// STEERING  (A / D)
+// ======================================================
+// Simple continuous left/right steering while driving: holding A
+// nudges the car toward the left edge of the road, holding D
+// toward the right. Tracked as key-down flags, set by keyboard()
+// and cleared by keyboardUp(), so the car keeps moving smoothly
+// for as long as the key stays held rather than jumping one fixed
+// step per keypress.
+bool steerLeftDown = false;
+bool steerRightDown = false;
+float carSteerSpeed = 0.9f;
+float carSteerMin = -70.0f;
+float carSteerMax = 70.0f;
 
 // ======================================================
 // BASIC SHAPES
@@ -338,6 +464,39 @@ void triangleShape(float x1, float y1, float x2, float y2, float x3, float y3)
     glEnd();
 }
 
+// A circle stretched independently on x and y, used for duck
+// bodies/heads so they read as soft ovals instead of perfect
+// circles.
+void ellipse(float x, float y, float rx, float ry)
+{
+    glBegin(GL_POLYGON);
+    for(int i = 0; i < 60; i++)
+    {
+        float angle = 2.0f * PI * i / 60.0f;
+        glVertex2f(x + rx * cos(angle), y + ry * sin(angle));
+    }
+    glEnd();
+}
+
+// A rectangle (quad) centred at (cx, cy) whose long axis points
+// along the given unit vector (ux, uy), rather than always being
+// screen-aligned. Used to build hands/fingers out of quads that
+// actually follow the angle of whatever they're attached to
+// (like a wheel rim at an arbitrary angle) instead of sitting in
+// a fixed horizontal/vertical box regardless of orientation.
+void orientedQuad(float cx, float cy, float ux, float uy, float halfLen, float halfWidth)
+{
+    float vx = -uy;
+    float vy = ux;
+
+    glBegin(GL_QUADS);
+    glVertex2f(cx + ux * halfLen + vx * halfWidth, cy + uy * halfLen + vy * halfWidth);
+    glVertex2f(cx - ux * halfLen + vx * halfWidth, cy - uy * halfLen + vy * halfWidth);
+    glVertex2f(cx - ux * halfLen - vx * halfWidth, cy - uy * halfLen - vy * halfWidth);
+    glVertex2f(cx + ux * halfLen - vx * halfWidth, cy + uy * halfLen - vy * halfWidth);
+    glEnd();
+}
+
 // Simple bitmap text helper.
 void drawText(float x, float y, const char *text)
 {
@@ -362,6 +521,29 @@ void shadedColor(int r, int g, int b, float factor)
     if(nb < 0) nb = 0;
     if(nb > 255) nb = 255;
     glColor3ub((GLubyte)nr, (GLubyte)ng, (GLubyte)nb);
+}
+
+// Small side-to-side sway used by grass/flowers/bg-tufts while a
+// wind gust is active. phaseSeed is normally derived from the
+// tuft's own x position, so neighboring tufts sway slightly out
+// of sync instead of all moving in lockstep. Returns 0 whenever
+// no gust is active, so it is safe to call unconditionally.
+float getWindSway(float phaseSeed)
+{
+    if(!windActive)
+        return 0.0f;
+
+    // Envelope: ramps up quickly, holds, ramps back down - so the
+    // gust doesn't snap on/off abruptly.
+    float envelope = 1.0f;
+    if(windTimer < 0.4f)
+        envelope = windTimer / 0.4f;
+    else if(windTimer > windDuration - 0.6f)
+        envelope = (windDuration - windTimer) / 0.6f;
+    if(envelope < 0.0f) envelope = 0.0f;
+    if(envelope > 1.0f) envelope = 1.0f;
+
+    return envelope * 3.0f * (float)sin(windTime * 10.0f + phaseSeed);
 }
 
 // ======================================================
@@ -472,11 +654,13 @@ void drawClouds()
 
 void updateClouds()
 {
+    float gustMult = windActive ? 3.0f : 1.0f;
+
     if(currentSeason != RAINY)
     {
-        cloud1X += 0.08f;
-        cloud2X += 0.05f;
-        cloud3X += 0.06f;
+        cloud1X += 0.08f * gustMult;
+        cloud2X += 0.05f * gustMult;
+        cloud3X += 0.06f * gustMult;
         if(cloud1X > 115) cloud1X = -115;
         if(cloud2X > 115) cloud2X = -115;
         if(cloud3X > 115) cloud3X = -115;
@@ -800,6 +984,8 @@ void drawForest()
 
 void drawForestBgGrass(float x, float y, float scale)
 {
+    x += getWindSway(x * 0.17f);
+
     if(currentSeason == WINTER)
         glColor3ub(125, 140, 155);
     else if(currentSeason == SUMMER)
@@ -831,6 +1017,8 @@ void drawForestBg()
 
 void drawGrass(float x, float y, float scale)
 {
+    x += getWindSway(x * 0.15f + y * 0.05f);
+
     if(currentSeason == WINTER)
         return;
     if(currentSeason == SUMMER)
@@ -878,6 +1066,8 @@ void drawRoadGrass()
 
 void drawFlower(float x, float y, float scale, int colorType)
 {
+    x += getWindSway(x * 0.12f + 1.7f);
+
     glColor3ub(46, 125, 50);
     glLineWidth(2.0f);
     glBegin(GL_LINES);
@@ -957,10 +1147,593 @@ void drawButterflies()
 // SPRING ENVIRONMENT
 // ======================================================
 
+// Positioned using the exact same offset/wrap math as drawForest(),
+// so the hive stays visually attached to its tree as the forest
+// scrolls and wraps around the 300-unit cycle.
+void drawBeeHive()
+{
+    if(currentSeason != SPRING)
+        return;
+
+    float x = treeX[BEE_HIVE_TREE_INDEX] + forestMove;
+    while(x > 150) x -= 300;
+    while(x < -150) x += 300;
+
+    // If the host tree itself isn't in the drawn range, skip the
+    // hive too, so it never appears floating with no tree under it.
+    if(x < -155 || x > 155)
+        return;
+
+    float scale = treeScale[BEE_HIVE_TREE_INDEX];
+    float y = treeY[BEE_HIVE_TREE_INDEX];
+
+    // Tucked into the branch fork, off to one side of the trunk.
+    float hx = x + 14.0f * scale;
+    float hy = y + 32.0f * scale;
+
+    // Hive body: three stacked, narrowing ovals - a simple
+    // paper-lantern silhouette.
+    glColor3ub(214, 165, 92);
+    circle(hx, hy, 4.6f * scale);
+    glColor3ub(224, 178, 108);
+    circle(hx, hy + 3.4f * scale, 3.6f * scale);
+    glColor3ub(232, 190, 120);
+    circle(hx, hy + 6.0f * scale, 2.3f * scale);
+
+    // Horizontal banding, like a real paper hive.
+    glColor3ub(150, 108, 55);
+    glLineWidth(1.5f);
+    glBegin(GL_LINES);
+    glVertex2f(hx - 4.2f * scale, hy - 1.0f * scale);
+    glVertex2f(hx + 4.2f * scale, hy - 1.0f * scale);
+    glVertex2f(hx - 3.5f * scale, hy + 2.0f * scale);
+    glVertex2f(hx + 3.5f * scale, hy + 2.0f * scale);
+    glVertex2f(hx - 2.5f * scale, hy + 4.6f * scale);
+    glVertex2f(hx + 2.5f * scale, hy + 4.6f * scale);
+    glEnd();
+
+    // Entrance hole near the bottom.
+    glColor3ub(60, 40, 20);
+    circle(hx, hy - 2.8f * scale, 0.85f * scale);
+
+    // A few bees looping around the entrance.
+    for(int i = 0; i < BEE_COUNT; i++)
+    {
+        float angle = beeOrbitTime * 2.4f + beePhase[i];
+        float radiusX = 3.4f * scale;
+        float radiusY = 1.8f * scale;
+
+        float bx = hx + radiusX * cos(angle);
+        float by = (hy - 2.8f * scale) + radiusY * sin(angle);
+
+        glColor3ub(35, 28, 12);
+        circle(bx, by, 0.32f * scale);
+
+        glColor3ub(238, 202, 40);
+        rectangle(
+            bx - 0.32f * scale, by - 0.10f * scale,
+            bx + 0.32f * scale, by + 0.10f * scale
+        );
+
+        // Tiny flickering wings.
+        glColor3ub(255, 255, 255);
+        circle(bx, by + 0.30f * scale, 0.18f * scale);
+    }
+}
+
 void drawSpringEnvironment()
 {
     drawFlowers();
     drawButterflies();
+    drawBeeHive();
+}
+
+// ======================================================
+// EXTRA EFFECTS  (J duck / K birds / M wind / N rainbow)
+// ======================================================
+
+// --- J: duck family crossing the road -------------------------
+// The family enters from the grass just above the road and
+// waddles straight down, through the road strip, and off the
+// bottom of the screen - a simple "crossing" motion. It is a
+// one-off foreground event, so it is NOT tied to worldMove; it
+// plays out entirely in fixed screen space over a couple of
+// seconds, the same way the rain/rainbow effect below does.
+
+void startDuckCrossing()
+{
+    if(duckActive)
+        return;
+
+    duckActive = true;
+    duckTimer = 0.0f;
+    duckY = -37.0f;
+    duckTrailHead = 0;
+    duckTrailCount = 0;
+
+    // Keep the family off to one side so it doesn't walk straight
+    // through the car, which always sits near x = 0.
+    if(rand() % 2 == 0)
+        duckX = -85.0f + (float)(rand() % 30);
+    else
+        duckX = 30.0f + (float)(rand() % 30);
+}
+
+void updateDuckCrossing()
+{
+    if(!duckActive)
+        return;
+
+    duckTimer += 0.02f;
+    duckY -= 0.22f;
+
+    // Record where the parent actually is (wobble included) this
+    // frame, so the ducklings can retrace the same steps a little
+    // while later instead of being welded to a fixed offset.
+    float wobble = 0.9f * (float)sin(duckTimer * 9.0f);
+    duckTrailX[duckTrailHead] = duckX + wobble;
+    duckTrailY[duckTrailHead] = duckY;
+    duckTrailHead = (duckTrailHead + 1) % DUCK_TRAIL_LEN;
+    if(duckTrailCount < DUCK_TRAIL_LEN)
+        duckTrailCount++;
+
+    if(duckY < -60.0f)
+        duckActive = false;
+}
+
+// isParent switches between the drake's proper mallard colouring
+// (glossy green head, white neck ring, brown body, blue wing
+// patch) and a duckling's round, fluffy yellow down. legPhase
+// drives a small alternating leg-paddle so the waddle reads as
+// actual steps rather than a shape sliding around.
+void drawDuck(float x, float y, float scale, bool isParent, float legPhase)
+{
+    float legKick = 0.5f * (float)sin(legPhase);
+
+    // --- feet, drawn first so the body overlaps them ---
+    glColor3ub(235, 140, 30);
+    triangleShape(x - 0.9f * scale, y - 1.5f * scale - legKick * scale,
+                  x - 0.2f * scale, y - 1.5f * scale - legKick * scale,
+                  x - 0.55f * scale, y - 2.3f * scale - legKick * scale);
+    triangleShape(x + 0.2f * scale, y - 1.5f * scale + legKick * scale,
+                  x + 0.9f * scale, y - 1.5f * scale + legKick * scale,
+                  x + 0.55f * scale, y - 2.3f * scale + legKick * scale);
+
+    if(isParent)
+    {
+        // tail curl
+        glColor3ub(35, 30, 25);
+        triangleShape(x - 2.0f * scale, y + 0.4f * scale,
+                      x - 2.9f * scale, y + 1.1f * scale,
+                      x - 2.2f * scale, y - 0.3f * scale);
+
+        // body
+        glColor3ub(150, 128, 96);
+        ellipse(x, y, 2.2f * scale, 1.35f * scale);
+
+        // folded wing, with a hint of the blue speculum feathers
+        glColor3ub(120, 100, 74);
+        ellipse(x - 0.2f * scale, y + 0.1f * scale, 1.3f * scale, 0.75f * scale);
+        glColor3ub(70, 110, 165);
+        ellipse(x - 0.3f * scale, y + 0.05f * scale, 0.55f * scale, 0.28f * scale);
+
+        // white neck ring
+        glColor3ub(250, 250, 245);
+        ellipse(x + 1.55f * scale, y + 0.75f * scale, 0.5f * scale, 0.65f * scale);
+
+        // head - glossy mallard green
+        glColor3ub(30, 90, 55);
+        circle(x + 1.85f * scale, y + 1.35f * scale, 0.95f * scale);
+        glColor3ub(45, 120, 72);
+        circle(x + 1.65f * scale, y + 1.55f * scale, 0.45f * scale);
+
+        // bill
+        glColor3ub(230, 170, 30);
+        triangleShape(x + 2.55f * scale, y + 1.30f * scale,
+                      x + 3.35f * scale, y + 1.18f * scale,
+                      x + 2.55f * scale, y + 0.95f * scale);
+
+        // eye
+        glColor3ub(15, 15, 15);
+        circle(x + 2.0f * scale, y + 1.5f * scale, 0.12f * scale);
+    }
+    else
+    {
+        // duckling - round, fluffy, big-headed
+        glColor3ub(255, 221, 90);
+        ellipse(x, y, 1.55f * scale, 1.15f * scale);
+
+        // soft brownish cap/back marking, typical of real ducklings
+        glColor3ub(214, 178, 60);
+        ellipse(x - 0.2f * scale, y + 0.35f * scale, 0.85f * scale, 0.4f * scale);
+
+        // tiny wing stub
+        glColor3ub(230, 195, 70);
+        ellipse(x - 0.3f * scale, y - 0.1f * scale, 0.55f * scale, 0.32f * scale);
+
+        // head - proportionally larger than the parent's, baby-like
+        glColor3ub(255, 230, 110);
+        circle(x + 1.25f * scale, y + 0.85f * scale, 0.85f * scale);
+        glColor3ub(224, 190, 66);
+        circle(x + 1.05f * scale, y + 1.15f * scale, 0.35f * scale);
+
+        // bill
+        glColor3ub(235, 150, 40);
+        triangleShape(x + 1.85f * scale, y + 0.82f * scale,
+                      x + 2.45f * scale, y + 0.74f * scale,
+                      x + 1.85f * scale, y + 0.58f * scale);
+
+        // eye
+        glColor3ub(20, 15, 10);
+        circle(x + 1.35f * scale, y + 0.95f * scale, 0.11f * scale);
+    }
+}
+
+void drawDuckFamily()
+{
+    if(!duckActive)
+        return;
+
+    // Gentle waddle side to side as the parent crosses.
+    float wobble = 0.9f * (float)sin(duckTimer * 9.0f);
+    float legPhaseParent = duckTimer * 14.0f;
+
+    drawDuck(duckX + wobble, duckY, 1.0f, true, legPhaseParent);
+
+    for(int i = 0; i < DUCKLING_COUNT; i++)
+    {
+        int delay = ducklingDelayFrames[i];
+        float px, py;
+
+        if(delay < duckTrailCount)
+        {
+            // Follow the parent's own recorded path, a few frames
+            // behind - this naturally reproduces the same wobble
+            // and forward motion, just staggered in time, so the
+            // ducklings look like they're genuinely walking in
+            // the parent's tracks rather than being glued in place.
+            int idx = duckTrailHead - 1 - delay;
+            while(idx < 0) idx += DUCK_TRAIL_LEN;
+            px = duckTrailX[idx];
+            py = duckTrailY[idx];
+        }
+        else
+        {
+            // Not enough history yet right at the very start -
+            // sit just behind the parent instead of popping in.
+            px = duckX + wobble;
+            py = duckY + 1.5f * (i + 1);
+        }
+
+        float legPhase = duckTimer * 14.0f + i * 1.3f;
+        drawDuck(px + ducklingLateral[i], py, 0.55f, false, legPhase);
+    }
+}
+
+// --- K: a small flock of birds flies across the sky --------------
+// Six birds in a loose V, cycling blue/yellow/red/white, cross
+// the whole screen once (left to right) and then clear. Screen-
+// space, like the duck crossing - not tied to worldMove, since
+// it's a short foreground/sky event rather than scrolling scenery.
+
+void startBirdFlock()
+{
+    if(birdActive)
+        return;
+
+    birdActive = true;
+    birdTimer = 0.0f;
+    flockX = -145.0f;
+    flockY = 32.0f + (float)(rand() % 25);
+}
+
+void updateBirdFlock()
+{
+    if(!birdActive)
+        return;
+
+    birdTimer += 0.02f;
+    flockX += 1.15f;
+
+    if(flockX > 145.0f)
+        birdActive = false;
+}
+
+// A simple flapping "M" silhouette. colorIdx cycles through
+// blue/yellow/red/white; flap is -1..1 and drives the wing angle.
+void drawBird(float x, float y, float scale, int colorIdx, float flap)
+{
+    int r, g, b;
+
+    switch(colorIdx % 4)
+    {
+        case 0: r = 70;  g = 130; b = 225; break; // blue
+        case 1: r = 240; g = 200; b = 45;  break; // yellow
+        case 2: r = 215; g = 60;  b = 55;  break; // red
+        default: r = 248; g = 248; b = 248; break; // white
+    }
+
+    float wingLift = (1.3f + flap) * scale;
+
+    // Wings: filled triangles tapering from near the body out to
+    // a point, instead of thin lines - reads as an actual wing
+    // shape and catches the flap motion much better.
+    shadedColor(r, g, b, 1.00f);
+    triangleShape(
+        x - 0.6f * scale, y + 0.25f * scale,
+        x - 1.6f * scale, y - 0.55f * scale,
+        x - 4.4f * scale, y + wingLift
+    );
+    shadedColor(r, g, b, 0.92f);
+    triangleShape(
+        x + 0.6f * scale, y + 0.25f * scale,
+        x + 1.6f * scale, y - 0.55f * scale,
+        x + 4.4f * scale, y + wingLift
+    );
+
+    // Small tail fan at the back.
+    shadedColor(r, g, b, 0.80f);
+    triangleShape(
+        x - 0.8f * scale, y + 0.05f * scale,
+        x - 2.1f * scale, y + 0.55f * scale,
+        x - 2.1f * scale, y - 0.45f * scale
+    );
+
+    // Rounded body, a touch darker than the wings so it reads as
+    // a separate, shaded form rather than a flat cutout.
+    shadedColor(r, g, b, 0.88f);
+    circle(x, y, 0.95f * scale);
+
+    // Head, angled slightly up and forward.
+    shadedColor(r, g, b, 0.98f);
+    circle(x + 0.95f * scale, y + 0.55f * scale, 0.55f * scale);
+
+    // Tiny beak.
+    glColor3ub(235, 150, 40);
+    triangleShape(
+        x + 1.35f * scale, y + 0.62f * scale,
+        x + 2.05f * scale, y + 0.52f * scale,
+        x + 1.35f * scale, y + 0.38f * scale
+    );
+
+    // A single dark eye dot, so the head doesn't read as a blank
+    // circle at this small scale.
+    glColor3ub(25, 25, 25);
+    circle(x + 1.05f * scale, y + 0.62f * scale, 0.11f * scale);
+}
+
+void drawBirdFlock()
+{
+    if(!birdActive)
+        return;
+
+    for(int i = 0; i < BIRD_COUNT; i++)
+    {
+        float bx = flockX + birdOffsetX[i];
+        float by = flockY + birdOffsetY[i];
+        float flap = (float)sin(birdTimer * 10.0f + birdFlapPhase[i]);
+
+        drawBird(bx, by, 1.0f, i, flap);
+    }
+}
+
+// --- M: wind gust -------------------------------------------------
+// Most of the actual sway lives in getWindSway(), which the
+// grass/flower/bg-tuft draw functions already call every frame.
+// This just drives the timer and the "closer, faster clouds"
+// boost in updateClouds().
+
+void startWindGust()
+{
+    if(windActive)
+        return;
+
+    windActive = true;
+    windTimer = 0.0f;
+}
+
+void updateWindGust()
+{
+    if(!windActive)
+        return;
+
+    windTimer += 0.05f;
+    windTime += 0.05f;
+
+    if(windTimer >= windDuration)
+    {
+        windActive = false;
+        windTime = 0.0f;
+    }
+}
+
+// --- N: rain shower that clears into a rainbow -------------------
+
+void initRainDrops()
+{
+    for(int i = 0; i < RAIN_DROP_COUNT; i++)
+    {
+        rainDropX[i] = -100.0f + (float)(rand() % 201);
+        rainDropY[i] = -20.0f + (float)(rand() % 120);
+        rainDropSpeed[i] = 1.0f + (float)(rand() % 100) / 100.0f;
+    }
+}
+
+// Pressing N toggles the effect:
+//  - from idle, it kicks off the rain -> rise -> hold sequence
+//  - from anywhere mid-effect (rain, rising, or holding), it
+//    jumps straight into the fade-out
+//  - while it's already fading out, extra presses are ignored
+//    until it's fully gone, so a rapid double-press can't confuse it
+void startRainbow()
+{
+    if(currentSeason == WINTER && rainbowState == RAINBOW_IDLE)
+        return;
+
+    if(rainbowState == RAINBOW_IDLE)
+    {
+        rainbowState = RAINBOW_RAIN;
+        rainbowTimer = 0.0f;
+        initRainDrops();
+    }
+    else if(rainbowState == RAINBOW_RAIN || rainbowState == RAINBOW_RISE || rainbowState == RAINBOW_HOLD)
+    {
+        rainbowState = RAINBOW_FALL;
+        rainbowTimer = 0.0f;
+    }
+}
+
+void updateRainbowEffect()
+{
+    if(rainbowState == RAINBOW_IDLE)
+        return;
+
+    rainbowTimer += 0.05f;
+
+    if(rainbowState == RAINBOW_RAIN)
+    {
+        for(int i = 0; i < RAIN_DROP_COUNT; i++)
+        {
+            rainDropY[i] -= rainDropSpeed[i] * 2.2f;
+            if(rainDropY[i] < -20.0f)
+            {
+                rainDropY[i] = 95.0f;
+                rainDropX[i] = -100.0f + (float)(rand() % 201);
+            }
+        }
+        if(rainbowTimer >= rainRainDuration)
+        {
+            rainbowState = RAINBOW_RISE;
+            rainbowTimer = 0.0f;
+        }
+    }
+    else if(rainbowState == RAINBOW_RISE)
+    {
+        if(rainbowTimer >= rainbowRiseDuration)
+        {
+            rainbowState = RAINBOW_HOLD;
+            rainbowTimer = 0.0f;
+        }
+    }
+    else if(rainbowState == RAINBOW_HOLD)
+    {
+        // Fully visible and stays exactly like this - no timeout -
+        // until startRainbow() is called again to fade it out.
+    }
+    else if(rainbowState == RAINBOW_FALL)
+    {
+        if(rainbowTimer >= rainbowFadeDuration)
+        {
+            rainbowState = RAINBOW_IDLE;
+            rainbowTimer = 0.0f;
+        }
+    }
+}
+
+void drawRain()
+{
+    if(rainbowState != RAINBOW_RAIN)
+        return;
+
+    glColor3ub(180, 200, 230);
+    glLineWidth(1.0f);
+    glBegin(GL_LINES);
+    for(int i = 0; i < RAIN_DROP_COUNT; i++)
+    {
+        glVertex2f(rainDropX[i], rainDropY[i]);
+        glVertex2f(rainDropX[i] - 1.0f, rainDropY[i] - 4.0f);
+    }
+    glEnd();
+}
+
+void drawRainbow()
+{
+    if(rainbowState == RAINBOW_IDLE || rainbowState == RAINBOW_RAIN)
+        return;
+
+    float envelope = 1.0f;
+    if(rainbowState == RAINBOW_RISE)
+        envelope = rainbowTimer / rainbowRiseDuration;
+    else if(rainbowState == RAINBOW_FALL)
+        envelope = 1.0f - (rainbowTimer / rainbowFadeDuration);
+
+    if(envelope < 0.0f) envelope = 0.0f;
+    if(envelope > 1.0f) envelope = 1.0f;
+    if(envelope <= 0.0f)
+        return;
+
+    // Seven bands, drawn as solid filled rings (outer radius down
+    // to inner radius) instead of thin separate outlines. Each
+    // band's inner edge is exactly the next band's outer edge, so
+    // the colors sit flush against one another with no visible
+    // sky gap in between - a real ribbon rather than a wireframe.
+    int bandColors[7][3] = {
+        { 230, 50, 50 },    // red
+        { 240, 130, 30 },   // orange
+        { 245, 215, 50 },   // yellow
+        { 70, 180, 90 },    // green
+        { 60, 130, 230 },   // blue
+        { 80, 80, 220 },    // indigo
+        { 160, 70, 200 }    // violet
+    };
+
+    float cx = 0.0f;
+    float cy = -20.0f;
+    float bandWidth = 4.4f;
+    float outerRadius = 78.0f;
+
+    const int SEGMENTS = 96;
+
+    glEnable(GL_BLEND);
+
+    // A soft white glow just outside the red band, so the arc
+    // reads as a gentle glowing ribbon instead of a hard-edged
+    // shape cut against the sky.
+    {
+        float haloOuter = outerRadius + 3.5f;
+        float haloInner = outerRadius;
+
+        glBegin(GL_QUAD_STRIP);
+        for(int i = 0; i <= SEGMENTS; i++)
+        {
+            float t = PI * (float)i / SEGMENTS;
+            // Fades to nothing at both ends (near the horizon) and
+            // is strongest at the top of the arc.
+            float edgeFade = (float)sin(t);
+            GLubyte a = (GLubyte)(envelope * edgeFade * 60.0f);
+
+            glColor4ub(255, 255, 255, a);
+            glVertex2f(cx + haloOuter * cos(t), cy + haloOuter * sin(t));
+            glVertex2f(cx + haloInner * cos(t), cy + haloInner * sin(t));
+        }
+        glEnd();
+    }
+
+    for(int band = 0; band < 7; band++)
+    {
+        float rOuter = outerRadius - band * bandWidth;
+        float rInner = rOuter - bandWidth;
+
+        glBegin(GL_QUAD_STRIP);
+        for(int i = 0; i <= SEGMENTS; i++)
+        {
+            float t = PI * (float)i / SEGMENTS;
+            float edgeFade = (float)sin(t);
+            GLubyte a = (GLubyte)(envelope * edgeFade * 210.0f);
+
+            glColor4ub(
+                (GLubyte)bandColors[band][0],
+                (GLubyte)bandColors[band][1],
+                (GLubyte)bandColors[band][2],
+                a
+            );
+            glVertex2f(cx + rOuter * cos(t), cy + rOuter * sin(t));
+            glVertex2f(cx + rInner * cos(t), cy + rInner * sin(t));
+        }
+        glEnd();
+    }
+
+    glDisable(GL_BLEND);
 }
 
 // ======================================================
@@ -1601,13 +2374,13 @@ void drawHintBox()
 
     // box
     glColor3ub(255, 255, 240);
-    rectangle(-96, 62, -48, 96);
+    rectangle(-96, 0, -40, 96);
     glColor3ub(40, 40, 40);
     glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
-    glVertex2f(-96, 62);
-    glVertex2f(-48, 62);
-    glVertex2f(-48, 96);
+    glVertex2f(-96, 0);
+    glVertex2f(-40, 0);
+    glVertex2f(-40, 96);
     glVertex2f(-96, 96);
     glEnd();
 
@@ -1617,6 +2390,13 @@ void drawHintBox()
     drawText(-93, 80, "0 - 5   SEASONS");
     drawText(-93, 72, "9   END OF JOURNEY");
     drawText(-93, 64, "8   LAST WORDS");
+    drawText(-93, 52, "WHILE DRIVING:");
+    drawText(-93, 44, "J   DUCKS CROSS ROAD");
+    drawText(-93, 36, "K   BIRDS FLYING");
+    drawText(-93, 28, "M   WIND GUST");
+    drawText(-93, 20, "N   RAINBOW (TOGGLE)");
+    drawText(-93, 12, "V   FIRST-PERSON VIEW");
+    drawText(-93, 4,  "A/D STEER LEFT/RIGHT");
 }
 
 // ======================================================
@@ -1747,6 +2527,645 @@ void updateSeasonTransition()
 }
 
 // ======================================================
+// FIRST-PERSON POV  (V key)
+// ======================================================
+// Everything below builds the "inside the car, looking through
+// the windshield" shot out of the same plain shapes used
+// everywhere else in the file - no cave/tunnel function involved.
+// It reuses drawSky()/drawSun()/drawClouds() (already season-
+// aware) plus drawTree()/drawFlower() (also season-aware) so the
+// pov always matches whatever season the drive is currently in.
+
+// Starts (or reverses) the blink. Ignores extra presses while a
+// blink is already in progress, so rapid taps can't get it stuck.
+void startPovToggle()
+{
+    if(povBlinkStage != 0)
+        return;
+
+    povBlinkStage = povActive ? 2 : 1;
+    povBlinkTimer = 0.0f;
+}
+
+// A cheap, deterministic pseudo-random value in [0,1) for a given
+// seed. Used to scatter the forest so it reads as organic rather
+// than a perfectly even row of trees, while staying exactly the
+// same shape every frame (a real rand() call here would make the
+// whole forest flicker/jitter every redraw).
+float povHash(float n)
+{
+    float x = (float)sin((double)n * 12.9898) * 43758.5453f;
+    return x - (float)floor((double)x);
+}
+
+void updatePovBlink()
+{
+    if(povBlinkStage == 0)
+        return;
+
+    povBlinkTimer += 0.05f;
+    if(povBlinkTimer >= povBlinkDuration)
+    {
+        povActive = (povBlinkStage == 1);
+        povBlinkStage = 0;
+        povBlinkTimer = 0.0f;
+    }
+}
+
+// A fan of wide, soft light bands, each one anchored right at
+// the edge of the sun disc (75,78) and reaching down across the
+// scene. Each band is actually three overlapping wedges of the
+// same angle, widest and faintest on the outside and narrowest
+// and brightest in the middle - that layered feathering is what
+// turns it into a soft glowing shaft instead of a single hard-
+// edged sliver that just reads as a thin line. Colour is a
+// near-white sky tint (not a saturated sun-yellow), so it lightens
+// the blue sky the way an actual beam of daylight does.
+void drawPovSunRays()
+{
+    if(currentSeason == WINTER)
+        return;
+
+    float sunX = 75.0f, sunY = 78.0f, sunR = 9.0f;
+
+    // Angles fan from lower-left to nearly straight down (degrees,
+    // standard math convention: 180 = left, 270 = down), with a
+    // length tuned per ray so they all reach roughly the same
+    // depth into the scene despite their different angles.
+    float rayAngleDeg[4] = { 222.0f, 242.0f, 258.0f, 274.0f };
+    float rayLength[4]   = { 190.0f, 158.0f, 138.0f, 128.0f };
+
+    // Three layers per ray: wide+faint outer glow, a medium band,
+    // and a narrower, slightly brighter core.
+    float spreadDeg[3] = { 9.0f, 5.5f, 2.6f };
+    GLubyte layerAlpha[3] = { 12, 18, 26 };
+
+    glEnable(GL_BLEND);
+    for(int i = 0; i < 4; i++)
+    {
+        float baseAngle = rayAngleDeg[i] * (float)PI / 180.0f;
+
+        for(int layer = 0; layer < 3; layer++)
+        {
+            float halfSpread = spreadDeg[layer] * (float)PI / 180.0f;
+            float baseR = sunR * 0.7f;
+
+            // The two near-vertices sit right on the sun's edge;
+            // the far vertex is where the beam fades into the
+            // scene.
+            float ax = sunX + baseR * (float)cos(baseAngle - halfSpread);
+            float ay = sunY + baseR * (float)sin(baseAngle - halfSpread);
+            float bx = sunX + baseR * (float)cos(baseAngle + halfSpread);
+            float by = sunY + baseR * (float)sin(baseAngle + halfSpread);
+            float tx = sunX + rayLength[i] * (float)cos(baseAngle);
+            float ty = sunY + rayLength[i] * (float)sin(baseAngle);
+
+            glColor4ub(255, 255, 250, layerAlpha[layer]);
+            triangleShape(ax, ay, bx, by, tx, ty);
+        }
+    }
+    glDisable(GL_BLEND);
+}
+
+// A soft pale haze sitting right along the horizon - the hazy,
+// slightly bleached-out look a bright day gets right where the
+// road and sky meet.
+void drawPovHorizonGlow()
+{
+    float horizonY = -20.0f;
+    glEnable(GL_BLEND);
+    for(int i = 0; i < 6; i++)
+    {
+        float f = (float)i / 6.0f;
+        GLubyte a = (GLubyte)(75.0f * (1.0f - f));
+        glColor4ub(255, 255, 245, a);
+        float y0 = horizonY + f * 11.0f;
+        rectangle(-100, y0, 100, y0 + 2.4f);
+    }
+    glDisable(GL_BLEND);
+}
+
+// Bigger, more numerous, fluffier clouds than the third-person
+// scene uses - reads more like a bright, wide-open countryside
+// sky than the smaller background clouds do.
+void drawPovClouds()
+{
+    drawCloud(-82, 58, 8);
+    drawCloud(-68, 74, 12);
+    drawCloud(-28, 84, 14);
+    drawCloud(6, 70, 9);
+    drawCloud(42, 80, 13);
+    drawCloud(76, 62, 9);
+    drawCloud(94, 76, 7);
+}
+
+// The road surface and a dashed centre line, converging to a
+// single point sitting right on the horizon (the same horizon
+// drawSky()/drawGround() already use). The ground either side is
+// shaded forest floor rather than an open field, since the trees
+// now come right up to the road.
+void drawPovRoad()
+{
+    float horizonY = -20.0f;
+
+    // Shaded forest floor, running the full width - a fairly
+    // deep green since it sits under a lot of tree cover, not an
+    // open sunlit field.
+    glColor3ub(58, 96, 46);
+    rectangle(-100, -60, 100, horizonY);
+
+    // A continuous grass carpet across the whole lower band. This
+    // is what actually fixes the "separated" look: the bush
+    // clumps below sit on top of solid colour everywhere, so
+    // there's never a gap showing the darker forest floor behind
+    // them - it reads as one continuous strip of undergrowth with
+    // clumps as texture, not scattered islands of grass.
+    if(currentSeason == WINTER)
+        glColor3ub(225, 230, 235);
+    else if(currentSeason == SUMMER)
+        glColor3ub(150, 132, 45);
+    else
+        glColor3ub(66, 128, 52);
+    rectangle(-100, -60, 100, -33);
+
+    // The road itself: light dirt/gravel, not dark asphalt, as a
+    // long straight wedge.
+    glColor3ub(160, 150, 126);
+    glBegin(GL_QUADS);
+    glVertex2f(-58, -60);
+    glVertex2f(58, -60);
+    glVertex2f(4, horizonY);
+    glVertex2f(-4, horizonY);
+    glEnd();
+
+    // A brighter, sunlit strip of grass right at the road's edge.
+    glColor3ub(122, 170, 68);
+    glBegin(GL_QUADS);
+    glVertex2f(-64, -60); glVertex2f(-58, -60);
+    glVertex2f(-4, horizonY); glVertex2f(-4.6f, horizonY);
+    glEnd();
+    glBegin(GL_QUADS);
+    glVertex2f(58, -60); glVertex2f(64, -60);
+    glVertex2f(4.6f, horizonY); glVertex2f(4, horizonY);
+    glEnd();
+
+    // Dashed centre line: a handful of bars that shrink and rise
+    // toward the vanishing point, gently animated so they appear
+    // to slide forward under the car.
+    glColor3ub(210, 200, 175);
+    float t = povWheelTime * 0.6f;
+    t -= (float)((int)t);
+    for(int i = 0; i < 8; i++)
+    {
+        float f = (i + t) / 8.0f;
+        if(f > 1.0f) f -= 1.0f;
+        float y = -55.0f + f * (horizonY - (-55.0f));
+        float halfW = (1.0f - f) * 1.3f + 0.04f;
+        float barH = (1.0f - f) * 3.0f + 0.10f;
+        rectangle(-halfW, y, halfW, y + barH);
+    }
+}
+
+// A solid clump of undergrowth: a few overlapping filled ellipses
+// guarantee full coverage with no gaps showing the ground colour
+// through it (unlike a couple of separate pointy grass tufts,
+// which leave visible gaps between them), topped with a couple of
+// pointed tufts on top purely for texture.
+void drawBushClump(float x, float y, float scale)
+{
+    if(currentSeason == WINTER)
+        return;
+
+    int r, g, b;
+    if(currentSeason == SUMMER) { r = 150; g = 132; b = 40; }
+    else                        { r = 44;  g = 140; b = 42; }
+
+    shadedColor(r, g, b, 0.92f);
+    ellipse(x - 1.6f * scale, y + 0.9f * scale, 3.0f * scale, 2.1f * scale);
+    shadedColor(r, g, b, 1.08f);
+    ellipse(x + 1.6f * scale, y + 0.8f * scale, 2.9f * scale, 2.0f * scale);
+    shadedColor(r, g, b, 1.0f);
+    ellipse(x, y + 1.7f * scale, 2.7f * scale, 2.0f * scale);
+
+    drawGrass(x - 1.0f * scale, y + 0.3f * scale, 1.1f * scale);
+    drawGrass(x + 1.1f * scale, y + 0.2f * scale, 1.0f * scale);
+}
+
+// One side of the forest, built as a small set of "slots" that
+// continuously scroll from the horizon toward the camera and then
+// loop back to the horizon - this is what makes the pov read as
+// driving THROUGH the forest instead of looking at a frozen
+// postcard of it.
+//
+// The motion is real inverse-distance perspective rather than a
+// straight linear grow/slide: each slot has a "distance ahead" z
+// that shrinks as it approaches, and both its screen-x and its
+// size are proportional to 1/z. That's what makes a tree swing
+// hard out toward (and past) the edge of the screen as it grows,
+// so it actually crosses by the window like a real roadside tree
+// would. Trees keep growing at full perspective size right up
+// until they leave the visible area - they exit purely by going
+// off-frame (past ±100), never by shrinking back down first,
+// since the lateral swing is tuned to comfortably clear the
+// screen edge well before the cycle wraps. Painter's algorithm
+// (sorted far-to-near before drawing) still applies underneath
+// it all.
+void drawPovForestSide(float side)
+{
+    float horizonY = -20.0f;
+    const int SLOTS = 9;
+    const int ROWS = 2;
+    const int N = SLOTS * ROWS;
+    float scrollSpeed = 0.045f;   // same 0.05-ish/frame pace used elsewhere
+
+    float zFar = 50.0f;
+    float zNear = 4.0f;
+    float groundDropK = 25.0f;    // only a mild sink as trees approach
+
+    int n = 0;
+    float fArr[N], xArr[N], yArr[N], scaleArr[N];
+    int typeArr[N];
+    float g1x[N], g1y[N], g1s[N];
+    float g2x[N], g2y[N], g2s[N];
+
+    for(int row = 0; row < ROWS; row++)
+    {
+        // The second row sits physically further from the road,
+        // so at any given distance ahead it reads a bit smaller
+        // and swings a bit further out to the side than the
+        // first. Both lateral constants are sized generously so
+        // that even at the worst-case jitter, the tree is well
+        // past the ±100 screen edge by the time it's at its
+        // biggest/nearest - it exits by leaving the frame, never
+        // by shrinking.
+        float lateralK = (row == 0) ? 560.0f : 780.0f;
+        float scaleK   = (row == 0) ? 7.5f   : 6.0f;
+
+        for(int i = 0; i < SLOTS; i++)
+        {
+            // f sweeps 0 (far, at the horizon) to 1 (near, right
+            // beside the car) and then wraps back to 0 - loopIndex
+            // changes each time it wraps, so the reseeded jitter
+            // below gives each pass a slightly different look
+            // instead of an obviously repeating loop.
+            float raw = (float)i / SLOTS + povWheelTime * scrollSpeed + row * (0.5f / SLOTS);
+            float loopIndex = (float)floor((double)raw);
+            float f = raw - loopIndex;
+
+            // Distance ahead of the car, shrinking smoothly from
+            // far to near.
+            float z = zNear + (1.0f - f) * (zFar - zNear);
+
+            float seed = side * 61.0f + i * 7.3f + row * 133.0f + loopIndex * 271.0f;
+            float lateralJitter = 1.0f + (povHash(seed) - 0.5f) * 0.3f;
+
+            // Inverse-distance perspective: screen-x and scale
+            // both grow as 1/z, so the tree swings out toward the
+            // edge of the screen at the same time it gets bigger,
+            // and is safely off-frame (so simply clipped, not
+            // shrunk) well before z reaches zNear.
+            float screenX = side * (lateralK * lateralJitter) / z;
+            float screenY = horizonY - groundDropK * (1.0f / z - 1.0f / zFar);
+            float scale = scaleK / z;
+
+            // Small residual jitter for an organic look, kept
+            // deliberately tiny now that perspective does the
+            // heavy lifting.
+            float jx = (povHash(seed + 0.37f) - 0.5f) * 2.0f;
+            float jy = (povHash(seed + 0.53f) - 0.5f) * 1.2f;
+
+            float typeRoll = povHash(seed + 0.71f);
+            int type = (typeRoll < 0.85f) ? 1 : (typeRoll < 0.94f ? 0 : 2);
+
+            fArr[n] = f;
+            xArr[n] = screenX + jx;
+            yArr[n] = screenY + jy;
+            scaleArr[n] = scale;
+            typeArr[n] = type;
+
+            // Two solid, gapless bush clumps at the tree's base
+            // (extra density, per request), both sized and
+            // positioned in step with the tree - same f, so they
+            // scroll at exactly the same speed as everything else.
+            float gx = screenX + (povHash(seed + 0.19f) - 0.5f) * (1.5f + scale * 1.5f);
+            float gy = screenY - (1.5f + scale * 1.5f);
+            g1x[n] = gx;  g1y[n] = gy;  g1s[n] = 0.55f + scale * 0.75f;
+
+            float gx2 = screenX + (povHash(seed + 0.61f) - 0.5f) * (2.5f + scale * 2.2f);
+            float gy2 = screenY - (1.2f + scale * 1.2f);
+            g2x[n] = gx2; g2y[n] = gy2; g2s[n] = 0.45f + scale * 0.65f;
+
+            n++;
+        }
+    }
+
+    // Painter's algorithm: a small insertion sort (n is tiny, so
+    // this costs nothing) ordering everything far-to-near (sorting
+    // by f ascending is the same as sorting by distance
+    // descending), so nearer trees always land on top of farther
+    // ones regardless of which slot currently holds which depth.
+    for(int a = 1; a < n; a++)
+    {
+        float kf = fArr[a], kx = xArr[a], ky = yArr[a], ks = scaleArr[a];
+        int kt = typeArr[a];
+        float kg1x = g1x[a], kg1y = g1y[a], kg1s = g1s[a];
+        float kg2x = g2x[a], kg2y = g2y[a], kg2s = g2s[a];
+        int b = a - 1;
+        while(b >= 0 && fArr[b] > kf)
+        {
+            fArr[b + 1] = fArr[b]; xArr[b + 1] = xArr[b]; yArr[b + 1] = yArr[b];
+            scaleArr[b + 1] = scaleArr[b]; typeArr[b + 1] = typeArr[b];
+            g1x[b + 1] = g1x[b]; g1y[b + 1] = g1y[b]; g1s[b + 1] = g1s[b];
+            g2x[b + 1] = g2x[b]; g2y[b + 1] = g2y[b]; g2s[b + 1] = g2s[b];
+            b--;
+        }
+        fArr[b + 1] = kf; xArr[b + 1] = kx; yArr[b + 1] = ky; scaleArr[b + 1] = ks; typeArr[b + 1] = kt;
+        g1x[b + 1] = kg1x; g1y[b + 1] = kg1y; g1s[b + 1] = kg1s;
+        g2x[b + 1] = kg2x; g2y[b + 1] = kg2y; g2s[b + 1] = kg2s;
+    }
+
+    for(int k = 0; k < n; k++)
+    {
+        // Bush clumps first, so they sit behind/at the base of
+        // their tree rather than floating in front of the canopy.
+        drawBushClump(g1x[k], g1y[k], g1s[k]);
+        drawBushClump(g2x[k], g2y[k], g2s[k]);
+        drawTree(xArr[k], yArr[k], scaleArr[k], typeArr[k]);
+    }
+}
+
+// Pink and white spring flowers along the grassy edge right next
+// to the road. They use the exact same inverse-distance
+// perspective and painter's-algorithm sort as the forest above
+// (just a shorter, gentler range, since they're small roadside
+// accents rather than big trees), so they cross by in step with
+// everything else. Like the trees, they keep their full size
+// right up until they leave the frame - no shrinking, just
+// clipping off-screen. Only in spring, same as everywhere else
+// flowers appear.
+void drawPovFlowers()
+{
+    if(currentSeason != SPRING)
+        return;
+
+    float horizonY = -20.0f;
+    const int SLOTS = 6;
+    const int N = SLOTS * 2;
+    float scrollSpeed = 0.045f;
+
+    float zFar = 45.0f;
+    float zNear = 5.0f;
+    float lateralK = 720.0f;
+    float scaleK = 5.5f;
+    float groundDropK = 15.0f;
+
+    float fArr[N], xArr[N], yArr[N], scaleArr[N];
+    int colorArr[N];
+    int n = 0;
+
+    for(int side = -1; side <= 1; side += 2)
+    {
+        for(int i = 0; i < SLOTS; i++)
+        {
+            float raw = (float)i / SLOTS + povWheelTime * scrollSpeed;
+            float loopIndex = (float)floor((double)raw);
+            float f = raw - loopIndex;
+
+            float z = zNear + (1.0f - f) * (zFar - zNear);
+
+            float seed = side * 87.0f + i * 5.9f + loopIndex * 191.0f;
+            float lateralJitter = 1.0f + (povHash(seed) - 0.5f) * 0.3f;
+
+            float screenX = side * (lateralK * lateralJitter) / z;
+            float screenY = horizonY - groundDropK * (1.0f / z - 1.0f / zFar);
+            float scale = scaleK / z;
+
+            int colorType = (povHash(seed + 0.4f) < 0.5f) ? 0 : 2; // pink / white only
+
+            fArr[n] = f; xArr[n] = screenX; yArr[n] = screenY; scaleArr[n] = scale; colorArr[n] = colorType;
+            n++;
+        }
+    }
+
+    for(int a = 1; a < n; a++)
+    {
+        float kf = fArr[a], kx = xArr[a], ky = yArr[a], ks = scaleArr[a];
+        int kc = colorArr[a];
+        int b = a - 1;
+        while(b >= 0 && fArr[b] > kf)
+        {
+            fArr[b + 1] = fArr[b]; xArr[b + 1] = xArr[b]; yArr[b + 1] = yArr[b];
+            scaleArr[b + 1] = scaleArr[b]; colorArr[b + 1] = colorArr[b];
+            b--;
+        }
+        fArr[b + 1] = kf; xArr[b + 1] = kx; yArr[b + 1] = ky; scaleArr[b + 1] = ks; colorArr[b + 1] = kc;
+    }
+
+    for(int k = 0; k < n; k++)
+        drawFlower(xArr[k], yArr[k], scaleArr[k], colorArr[k]);
+}
+
+// The windshield frame: a thin header (not thick pillars, so the
+// view stays wide open like the reference photo), a rear-view
+// mirror with a hint of the road reflected in it, and a proper
+// dashboard with air vents and a centre console.
+void drawPovCarInterior()
+{
+    // A thin windshield header along the very top - just enough
+    // to read as glass meeting the roof, not a pillar blocking
+    // the view.
+    glColor3ub(28, 26, 24);
+    rectangle(-100, 94, 100, 100);
+
+    // Rear-view mirror, hanging from the header, with a small
+    // hint of road reflected inside it.
+    glColor3ub(20, 18, 16);
+    rectangle(-11, 80, 11, 88);
+    glColor3ub(150, 178, 190);
+    rectangle(-9.3f, 81.3f, 9.3f, 86.7f);
+    glColor3ub(120, 130, 100);
+    triangleShape(-9.3f, 81.3f, 9.3f, 81.3f, 0, 86.7f);
+    glColor3ub(215, 215, 210);
+    rectangle(-0.6f, 81.3f, 0.6f, 86.7f);
+
+    // Dashboard along the bottom - dark and flat, with a soft
+    // sheen catching the daylight along its top edge.
+    glColor3ub(32, 30, 28);
+    rectangle(-100, -60, 100, -30);
+    glEnable(GL_BLEND);
+    glColor4ub(255, 255, 255, 18);
+    rectangle(-100, -32, 100, -30);
+    glDisable(GL_BLEND);
+
+    // A pair of air vents set into the dash.
+    for(int side = -1; side <= 1; side += 2)
+    {
+        float vx = side * 30.0f;
+        glColor3ub(20, 19, 18);
+        rectangle(vx - 7.0f, -46.0f, vx + 7.0f, -38.0f);
+        glColor3ub(48, 46, 44);
+        for(int s = 0; s < 4; s++)
+        {
+            float sy = -45.0f + s * 1.8f;
+            rectangle(vx - 6.0f, sy, vx + 6.0f, sy + 0.7f);
+        }
+    }
+
+    // A slim centre console strip.
+    glColor3ub(24, 22, 20);
+    rectangle(-6.0f, -60.0f, 6.0f, -40.0f);
+}
+
+// The steering wheel, gently swaying, tucked into the lower-left
+// of the frame and mostly cropped by the bottom edge - the same
+// off-centre, partially-cropped composition as the reference
+// photo - with a pair of hands gripping the visible upper arc.
+// The hands use the same age-based skin/shirt colouring as the
+// man everywhere else in the scene, so they visibly age right
+// along with him.
+void drawPovSteeringWheel()
+{
+    float cx = -34.0f;
+    float cy = -58.0f;
+    float outerR = 24.0f;
+    float innerR = 18.5f;
+
+    float swayDeg = 5.0f * (float)sin(povWheelTime * 0.6f);
+    if(steerLeftDown)  swayDeg -= 22.0f;
+    if(steerRightDown) swayDeg += 22.0f;
+    float swayRad = swayDeg * (float)PI / 180.0f;
+
+    glPushMatrix();
+    glTranslatef(cx, cy, 0.0f);
+    glRotatef(swayDeg, 0.0f, 0.0f, 1.0f);
+
+    glColor3ub(16, 16, 16);
+    circle(0, 0, outerR);
+    glColor3ub(40, 40, 44);
+    circle(0, 0, innerR);
+
+    glColor3ub(16, 16, 16);
+    rectangle(-1.8f, 0.0f, 1.8f, innerR);
+    glBegin(GL_QUADS);
+    glVertex2f(-1.6f, -1.0f);
+    glVertex2f(-innerR * 0.85f, -innerR * 0.5f);
+    glVertex2f(-innerR * 0.72f, -innerR * 0.22f);
+    glVertex2f(-1.6f, 1.0f);
+    glEnd();
+    glBegin(GL_QUADS);
+    glVertex2f(1.6f, -1.0f);
+    glVertex2f(innerR * 0.85f, -innerR * 0.5f);
+    glVertex2f(innerR * 0.72f, -innerR * 0.22f);
+    glVertex2f(1.6f, 1.0f);
+    glEnd();
+
+    glColor3ub(24, 24, 24);
+    circle(0, 0, 4.0f);
+    glColor3ub(60, 60, 60);
+    circle(0, 0, 1.4f);
+
+    glPopMatrix();
+
+    int stage = manAge();
+    // Roughly 10 and 2 o'clock on the visible upper arc.
+    float gripAngle[2] = { (float)PI * 0.62f, (float)PI * 0.18f };
+
+    for(int side = 0; side < 2; side++)
+    {
+        float a = gripAngle[side] + swayRad;
+        float radialX = (float)cos(a);
+        float radialY = (float)sin(a);
+        // Tangent to the rim at this point - the whole hand is
+        // built along this direction so it follows the wheel's
+        // actual curve instead of sitting in a fixed box no
+        // matter where on the rim it grips.
+        float tangX = -radialY;
+        float tangY = radialX;
+        // Left hand fans one way along the tangent, right hand
+        // the other, like a mirrored pair of real hands.
+        float fan = (side == 0) ? -1.0f : 1.0f;
+
+        float hx = cx + (outerR - 1.0f) * radialX;
+        float hy = cy + (outerR - 1.0f) * radialY;
+
+        // Forearm: two stacked quads trailing toward the wheel's
+        // centre, noticeably thick so it reads as a man's forearm
+        // rather than a child's.
+        manShirtColor(stage);
+        orientedQuad(hx - radialX * 5.5f, hy - radialY * 5.5f, radialX, radialY, 3.6f, 2.6f);
+        orientedQuad(hx - radialX * 2.6f, hy - radialY * 2.6f, radialX, radialY, 2.2f, 2.9f);
+
+        // Wrist - a short transition quad between sleeve and hand.
+        manSkinColor(stage);
+        orientedQuad(hx - radialX * 0.8f, hy - radialY * 0.8f, radialX, radialY, 1.1f, 2.5f);
+
+        // Back of the hand: one broad, squared-off quad across the
+        // knuckles (wide along the tangent, shallow along the
+        // radial/depth direction) instead of a round blob, so it
+        // reads as a hand shape and not a fist-sized ball. No
+        // separate finger/thumb quads - just this block sitting on
+        // the rim reads cleanly at this scale without turning into
+        // clutter.
+        orientedQuad(hx + radialX * 0.9f, hy + radialY * 0.9f, tangX * fan, tangY * fan, 3.4f, 2.3f);
+    }
+}
+
+void drawPovScene()
+{
+    // A very small continuous bob/sway on the whole view - like
+    // the car (and your head) gently jostling over an uneven dirt
+    // road. Combined with the forest scrolling and the dashed
+    // line moving, this is what actually sells "moving" instead
+    // of "parked in front of a painted backdrop".
+    float bobY = 0.35f * (float)sin(povWheelTime * 3.1f);
+    float bobX = 0.15f * (float)sin(povWheelTime * 2.3f + 1.0f);
+
+    glPushMatrix();
+    glTranslatef(bobX, bobY, 0.0f);
+
+    drawSky();
+    drawSun();
+    drawPovClouds();
+    drawPovHorizonGlow();
+    drawPovSunRays();
+
+    // Distant mountains behind the tree line - the same
+    // drawMountains()/drawWinterMountains() the third-person view
+    // uses, so they're already season-coloured and already
+    // scrolling via the shared mountainMove offset (which keeps
+    // advancing in the background the whole time you're driving,
+    // pov or not). Kept outside the steering-shift block below,
+    // same as the sky/clouds, since something this far away
+    // shouldn't visibly swing with a bit of A/D steering.
+    if(currentSeason == WINTER)
+        drawWinterMountains();
+    drawMountains();
+
+    // The whole outdoor layer shifts opposite to the car's lane
+    // position, so steering with A/D visibly moves the road and
+    // forest under the (fixed) dashboard/wheel, the way it would
+    // if you were actually steering side to side on the road.
+    float shiftScale = 0.35f;
+    glPushMatrix();
+    glTranslatef(-carX * shiftScale, 0.0f, 0.0f);
+
+    drawPovRoad();
+    drawPovForestSide(-1.0f);
+    drawPovForestSide(1.0f);
+    drawPovFlowers();
+
+    glPopMatrix();
+
+    drawPovCarInterior();
+    drawPovSteeringWheel();
+
+    glColor3ub(220, 220, 215);
+    drawText(4, -55, "V - EXIT");
+
+    glPopMatrix();
+}
+
+// ======================================================
 // DISPLAY
 // ======================================================
 
@@ -1754,9 +3173,30 @@ void display()
 {
     glClear(GL_COLOR_BUFFER_BIT);
     glLoadIdentity();
+
+    // Mid-blink: a plain black flash, nothing else drawn this
+    // frame - the world keeps updating underneath regardless.
+    if(povBlinkStage != 0)
+    {
+        glColor3ub(0, 0, 0);
+        rectangle(-100, -60, 100, 100);
+        glutSwapBuffers();
+        return;
+    }
+
+    // Showing the first-person pov instead of the normal scene.
+    if(povActive)
+    {
+        drawPovScene();
+        glutSwapBuffers();
+        return;
+    }
+
     drawSky();
     drawSun();
     drawClouds();
+    drawRain();
+    drawRainbow();
     if(currentSeason == WINTER)
     {
         drawWinterMountains();
@@ -1776,9 +3216,11 @@ void display()
         {drawGrassField();}
     if(currentSeason == SPRING)
         {drawSpringEnvironment();}
+    drawBirdFlock();
     if(currentSeason == WINTER)
         {drawSnow();}
     drawBench();
+    drawDuckFamily();
     if(tunnelVisible && transitionStage != 3)
         {drawCave();}
     // The man walks on the far side, so he is drawn before the car.
@@ -1813,6 +3255,16 @@ void update(int value)
         updateWorld();
         updateMan();
 
+        // A / D steering: only while actually driving, same
+        // restriction as the effect keys and season keys.
+        if(manState == MAN_IN_CAR && !changingSeason && !endingStarted)
+        {
+            if(steerLeftDown)  carX -= carSteerSpeed;
+            if(steerRightDown) carX += carSteerSpeed;
+            if(carX < carSteerMin) carX = carSteerMin;
+            if(carX > carSteerMax) carX = carSteerMax;
+        }
+
         // The wheels turn only as fast as the car really moves,
         // so they stand still before and after the journey.
         wheelRotation -= 30.0f * worldSpeed;
@@ -1823,9 +3275,20 @@ void update(int value)
             updateSeasonTransition();
         updateClouds();
         if(currentSeason == SPRING)
+        {
             butterflyTime += 0.05f;
+            beeOrbitTime += 0.05f;
+        }
         if(currentSeason == WINTER)
             updateSnow();
+
+        updateDuckCrossing();
+        updateBirdFlock();
+        updateWindGust();
+        updateRainbowEffect();
+        updatePovBlink();
+        if(povActive)
+            povWheelTime += 0.05f;
     }
     glutPostRedisplay();
     glutTimerFunc(16, update, 0);
@@ -1834,6 +3297,14 @@ void update(int value)
 // ======================================================
 // KEYBOARD
 // ======================================================
+
+// Shared gate for the effect keys (J/K/L/M/N): only while the
+// man is actually driving and nothing else is mid-transition,
+// same restriction as the season keys below.
+bool canTriggerEffect()
+{
+    return (manState == MAN_IN_CAR && !endingStarted && !changingSeason);
+}
 
 // One helper for all six season keys. Seasons can only be
 // changed while the man is driving.
@@ -1891,12 +3362,55 @@ void keyboard(unsigned char key, int x, int y)
         startSeasonChange(AUTUMN);
     else if(key == '5')
         startSeasonChange(WINTER);
+    else if(key == 'j' || key == 'J')
+    {
+        if(canTriggerEffect())
+            startDuckCrossing();
+    }
+    else if(key == 'k' || key == 'K')
+    {
+        if(canTriggerEffect())
+            startBirdFlock();
+    }
+    else if(key == 'm' || key == 'M')
+    {
+        if(canTriggerEffect())
+            startWindGust();
+    }
+    else if(key == 'n' || key == 'N')
+    {
+        if(canTriggerEffect())
+            startRainbow();
+    }
+    else if(key == 'v' || key == 'V')
+    {
+        // Same driving-only gate as J/K/M/N. It also covers
+        // toggling back OUT of the pov, since being in the pov
+        // doesn't change manState - the man is still "in the car"
+        // the whole time.
+        if(canTriggerEffect())
+            startPovToggle();
+    }
+    else if(key == 'a' || key == 'A')
+        steerLeftDown = true;
+    else if(key == 'd' || key == 'D')
+        steerRightDown = true;
     else if(key == ' ')
         paused = !paused;
     else if(key == 27)
         exit(0);
 
     glutPostRedisplay();
+}
+
+// Clears the steering flags the moment A or D is released, so the
+// car only moves for as long as the key is actually held down.
+void keyboardUp(unsigned char key, int x, int y)
+{
+    if(key == 'a' || key == 'A')
+        steerLeftDown = false;
+    else if(key == 'd' || key == 'D')
+        steerRightDown = false;
 }
 
 // ======================================================
@@ -1929,6 +3443,7 @@ int main(int argc, char** argv)
     init();
     glutDisplayFunc(display);
     glutKeyboardFunc(keyboard);
+    glutKeyboardUpFunc(keyboardUp);
     glutTimerFunc(16, update, 0);
     glutMainLoop();
     return 0;
