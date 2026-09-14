@@ -307,6 +307,51 @@ float roadGrassY[ROAD_GRASS_COUNT] = { -54, -46, -52, -44, -55, -48 };
 float roadGrassScale[ROAD_GRASS_COUNT] = { 0.28f, 0.22f, 0.30f, 0.24f, 0.27f, 0.23f };
 
 // ======================================================
+// AUTUMN LEAVES DATA
+// ======================================================
+// A small, LIMITED pool of leaves is always "in flight" at once
+// (AUTUMN_LEAF_COUNT). Each one spawns from a real tree's canopy
+// position/height (not a random screen point), falls + sways
+// down, and - when it reaches the ground - is copied into a
+// second, separate pool of LANDED leaves that stay drawn forever
+// (up to MAX_LANDED_LEAVES) instead of vanishing. That's what
+// gives the "leaves accumulate on the ground" look.
+//
+// The screen has two ground bands a leaf can settle on:
+//   - the green grass strip, roughly y = -20 down to y = -40
+//   - the darker road strip, roughly y = -40 down to y = -58
+// Most leaves land in the grass right where they fell; a smaller
+// share get blown further down and settle on the road.
+//
+// Every position here (falling AND landed) is stored as a "base"
+// x that gets worldMove added at draw/update time, exactly like
+// the trees/grass/flowers - so a leaf stays visually attached to
+// the scrolling world instead of drifting away from it.
+
+const int AUTUMN_LEAF_COUNT = 26;
+
+float autumnLeafBaseX[AUTUMN_LEAF_COUNT];
+float autumnLeafY[AUTUMN_LEAF_COUNT];
+float autumnLeafLandY[AUTUMN_LEAF_COUNT];   // this leaf's target landing height
+float autumnLeafSpeed[AUTUMN_LEAF_COUNT];   // downward fall speed
+float autumnLeafSway[AUTUMN_LEAF_COUNT];    // how wide it swings side to side
+float autumnLeafPhase[AUTUMN_LEAF_COUNT];   // per-leaf phase offset
+float autumnLeafRot[AUTUMN_LEAF_COUNT];     // current rotation (degrees)
+float autumnLeafRotSpeed[AUTUMN_LEAF_COUNT];
+int   autumnLeafColor[AUTUMN_LEAF_COUNT];   // 0=orange 1=red 2=yellow
+
+// timer used for the side-to-side sway motion
+float autumnTime = 0.0f;
+
+const int MAX_LANDED_LEAVES = 90;
+
+float landedLeafBaseX[MAX_LANDED_LEAVES];
+float landedLeafY[MAX_LANDED_LEAVES];
+float landedLeafRot[MAX_LANDED_LEAVES];
+int   landedLeafColor[MAX_LANDED_LEAVES];
+int   landedLeafCount = 0;
+
+// ======================================================
 // CLOUD VARIABLES
 // ======================================================
 
@@ -322,7 +367,6 @@ float cloud5X = 40;
 // Four independent, button-triggered scene flourishes:
 //   J - a duck family waddles across the road
 //   K - a temporary burst of extra butterflies (spring only)
-//   N - a short rain shower that clears into a rainbow arc
 // Each is a simple "active flag + timer" state, same pattern as
 // the rest of the file (seasonScreenTimer, updateEnding, etc.).
 // All of them are screen-space effects (not tied to worldMove),
@@ -378,28 +422,6 @@ float flockY = 40.0f;
 float birdOffsetX[BIRD_COUNT] = { 0.0f, -4.5f, -4.5f, -9.0f, -9.0f, -13.5f };
 float birdOffsetY[BIRD_COUNT] = { 0.0f,  2.2f, -2.2f,  4.4f, -4.4f,  6.2f };
 float birdFlapPhase[BIRD_COUNT] = { 0.0f, 1.1f, 2.3f, 3.4f, 4.6f, 5.7f };
-
-// --- Rain + rainbow ---
-// N is now a toggle instead of a fixed-length effect:
-//   1st press : rain falls, then the rainbow rises and HOLDS
-//               (stays on screen indefinitely)
-//   2nd press : the rainbow fades back out and the effect ends
-#define RAINBOW_IDLE  0   // nothing showing
-#define RAINBOW_RAIN  1   // rain falling, rainbow not visible yet
-#define RAINBOW_RISE  2   // rain has cleared, rainbow fading in
-#define RAINBOW_HOLD  3   // rainbow fully visible, stays until toggled off
-#define RAINBOW_FALL  4   // rainbow fading out after the 2nd press
-
-int rainbowState = RAINBOW_IDLE;
-float rainbowTimer = 0.0f;         // time spent in the current phase
-float rainRainDuration = 3.0f;     // how long the rain falls for
-float rainbowRiseDuration = 1.5f;  // how long the rainbow takes to fade in
-float rainbowFadeDuration = 1.5f;  // how long it takes to fade out on toggle-off
-
-const int RAIN_DROP_COUNT = 60;
-float rainDropX[RAIN_DROP_COUNT];
-float rainDropY[RAIN_DROP_COUNT];
-float rainDropSpeed[RAIN_DROP_COUNT];
 
 // --- V: first-person POV, with a quick black blink ---
 // A short black flash (like an eye-blink), then the view cuts to
@@ -534,6 +556,63 @@ void shadedColor(int r, int g, int b, float factor)
 // WINTER SNOW
 // ======================================================
 
+// ======================================================
+// AUTUMN LEAVES  -  SPAWN / INIT / RESET
+// ======================================================
+
+// Sends one falling leaf back up into a randomly chosen tree's
+// canopy with a fresh speed/sway/color, and picks a new landing
+// spot (grass or road) for it to aim for.
+void respawnAutumnLeaf(int i)
+{
+    int treeIndex = rand() % TREE_COUNT;
+
+    // Originate from that tree's canopy: near its trunk x (with a
+    // little spread across the canopy width) and near its canopy
+    // height (taller/bigger trees drop leaves from higher up).
+    autumnLeafBaseX[i] = treeX[treeIndex] + (float)((rand() % 25) - 12);
+    autumnLeafY[i] = treeY[treeIndex] + (55.0f + (float)(rand() % 20)) * treeScale[treeIndex];
+
+    autumnLeafSpeed[i] = 0.18f + (float)(rand() % 25) / 100.0f;
+    autumnLeafSway[i] = 3.0f + (float)(rand() % 5);
+    autumnLeafPhase[i] = (float)(rand() % 628) / 100.0f;
+    autumnLeafRot[i] = (float)(rand() % 360);
+    autumnLeafRotSpeed[i] = -3.0f + (float)(rand() % 60) / 10.0f;
+    autumnLeafColor[i] = rand() % 3;
+
+    // ~72% land on the green grass strip right under the trees,
+    // ~28% get blown further down onto the road.
+    if(rand() % 100 < 72)
+        autumnLeafLandY[i] = -22.0f - (float)(rand() % 16); // grass: -22 .. -37
+    else
+        autumnLeafLandY[i] = -43.0f - (float)(rand() % 13); // road:  -43 .. -55
+}
+
+void initAutumnLeaves()
+{
+    for(int i = 0; i < AUTUMN_LEAF_COUNT; i++)
+    {
+        respawnAutumnLeaf(i);
+
+        // Scatter their starting heights on init so they don't
+        // all begin mid-canopy in one synchronized wave.
+        autumnLeafY[i] -= (float)(rand() % 120);
+    }
+
+    landedLeafCount = 0;
+}
+
+// Clears the ground leaf pool and restarts the falling leaves -
+// called each time the scene transitions INTO autumn so every
+// visit starts from a clean, gradually-accumulating forest floor.
+void resetAutumnLeaves()
+{
+    landedLeafCount = 0;
+
+    for(int i = 0; i < AUTUMN_LEAF_COUNT; i++)
+        respawnAutumnLeaf(i);
+}
+
 void initSnow()
 {
     for(int i = 0; i < SNOW_COUNT; i++)
@@ -574,6 +653,123 @@ void updateSnow()
 }
 
 // ======================================================
+// AUTUMN LEAVES  -  DRAW / UPDATE
+// ======================================================
+
+// Draws one small rotated leaf (a simple kite/diamond shape with
+// a center vein) at (cx, cy). rotDeg controls its tumble as it
+// falls; colorType picks orange/red/yellow.
+void drawLeafShape(float cx, float cy, float size, float rotDeg, int colorType)
+{
+    switch(colorType)
+    {
+        case 0:  glColor3ub(224, 122, 25); break; // orange
+        case 1:  glColor3ub(178, 48, 32);  break; // red
+        default: glColor3ub(230, 178, 40); break; // yellow
+    }
+
+    float rad = rotDeg * PI / 180.0f;
+    float c = cos(rad);
+    float s = sin(rad);
+
+    // Local-space kite shape (tip up, wide middle, short base)
+    float lx[4] = { 0.0f,        size * 0.55f, 0.0f,         -size * 0.55f };
+    float ly[4] = { size * 1.0f, size * 0.15f, -size * 0.65f, size * 0.15f };
+
+    glBegin(GL_QUADS);
+    for(int i = 0; i < 4; i++)
+    {
+        float rx = lx[i] * c - ly[i] * s;
+        float ry = lx[i] * s + ly[i] * c;
+        glVertex2f(cx + rx, cy + ry);
+    }
+    glEnd();
+
+    // Center vein/stem line, rotated along with the leaf
+    glColor3ub(110, 55, 20);
+    glLineWidth(1.0f);
+
+    float vx1 = -size * 0.65f * s;
+    float vy1 =  size * 0.65f * c;
+    float vx2 =  size * 1.0f * s;
+    float vy2 = -size * 1.0f * c;
+
+    glBegin(GL_LINES);
+    glVertex2f(cx + vx1, cy + vy1);
+    glVertex2f(cx + vx2, cy + vy2);
+    glEnd();
+}
+
+// Leaves still drifting down from the canopy.
+void drawFallingAutumnLeaves()
+{
+    if(currentSeason != AUTUMN)
+        return;
+
+    for(int i = 0; i < AUTUMN_LEAF_COUNT; i++)
+    {
+        float bx = autumnLeafBaseX[i] + forestMove;
+        while(bx > 150) bx -= 300;
+        while(bx < -150) bx += 300;
+
+        float sway = sin(autumnTime * 1.4f + autumnLeafPhase[i]) * autumnLeafSway[i];
+
+        drawLeafShape(bx + sway, autumnLeafY[i], 2.2f, autumnLeafRot[i], autumnLeafColor[i]);
+    }
+}
+
+// Leaves that have already reached the ground (grass or road) and
+// stay there. They scroll with the same offset the trees use, so
+// they stay put relative to the ground instead of sliding
+// independently of it.
+void drawLandedAutumnLeaves()
+{
+    if(currentSeason != AUTUMN)
+        return;
+
+    for(int i = 0; i < landedLeafCount; i++)
+    {
+        float bx = landedLeafBaseX[i] + forestMove;
+        while(bx > 150) bx -= 300;
+        while(bx < -150) bx += 300;
+
+        drawLeafShape(bx, landedLeafY[i], 1.8f, landedLeafRot[i], landedLeafColor[i]);
+    }
+}
+
+void updateAutumnLeaves()
+{
+    if(currentSeason != AUTUMN)
+        return;
+
+    for(int i = 0; i < AUTUMN_LEAF_COUNT; i++)
+    {
+        autumnLeafY[i] -= autumnLeafSpeed[i];
+        autumnLeafRot[i] += autumnLeafRotSpeed[i];
+
+        // Each leaf has its own target landing height, assigned
+        // when it spawned - either the grass strip or the road
+        // strip (see respawnAutumnLeaf()).
+        if(autumnLeafY[i] <= autumnLeafLandY[i])
+        {
+            if(landedLeafCount < MAX_LANDED_LEAVES)
+            {
+                float sway = sin(autumnTime * 1.4f + autumnLeafPhase[i]) * autumnLeafSway[i];
+
+                landedLeafBaseX[landedLeafCount] = autumnLeafBaseX[i] + sway;
+                landedLeafY[landedLeafCount] = autumnLeafLandY[i];
+                landedLeafRot[landedLeafCount] = (float)(rand() % 360);
+                landedLeafColor[landedLeafCount] = autumnLeafColor[i];
+
+                landedLeafCount++;
+            }
+
+            respawnAutumnLeaf(i);
+        }
+    }
+}
+
+// ======================================================
 // SKY / SUN / GROUND
 // ======================================================
 
@@ -585,6 +781,8 @@ void drawSky()
         glColor3ub(105, 195, 255);
     else if(currentSeason == WINTER)
         glColor3ub(180, 210, 235);
+    else if(currentSeason == AUTUMN)
+        glColor3ub(190, 210, 230);
     else
         glColor3ub(128, 204, 255);
     rectangle(-100, -20, 100, 100);
@@ -609,6 +807,8 @@ void drawGround()
         glColor3ub(190, 170, 75);
     else if(currentSeason == WINTER)
         glColor3ub(235, 240, 245);
+    else if(currentSeason == AUTUMN)
+        glColor3ub(150, 120, 55);
     else
         glColor3ub(51, 140, 46);
     rectangle(-100, -60, 100, -20);
@@ -837,6 +1037,11 @@ void drawTreeLeaves(float x, float y, float scale)
     {
         r = 8; g = 105; b = 15;
     }
+    else if(currentSeason == AUTUMN)
+    {
+        // Warm orange autumn foliage
+        r = 224; g = 122; b = 25;
+    }
     else
     {
         r = 10; g = 122; b = 18;
@@ -867,6 +1072,9 @@ void drawPineLeaves(float x, float y, float scale)
         glColor3ub(55, 130, 45);
     else if(currentSeason == SUMMER)
         glColor3ub(10, 60, 24);
+    else if(currentSeason == AUTUMN)
+        // Pines stay evergreen but dull/darken a little in autumn
+        glColor3ub(55, 78, 30);
     else
         glColor3ub(12, 70, 28);
     triangleShape(x - 16 * scale, y + 28 * scale, x + 16 * scale, y + 28 * scale, x, y + 48 * scale);
@@ -898,6 +1106,11 @@ void drawBushyTriangleLeaves(float x, float y, float scale)
     else if(currentSeason == SUMMER)
     {
         r = 95; g = 125; b = 30;
+    }
+    else if(currentSeason == AUTUMN)
+    {
+        // Deep red autumn foliage
+        r = 178; g = 48; b = 32;
     }
     else
     {
@@ -970,6 +1183,8 @@ void drawForestBgGrass(float x, float y, float scale)
         glColor3ub(125, 140, 155);
     else if(currentSeason == SUMMER)
         glColor3ub(120, 125, 35);
+    else if(currentSeason == AUTUMN)
+        glColor3ub(150, 90, 40);
     else
         glColor3ub(34, 120, 34);
     glBegin(GL_TRIANGLES);
@@ -1001,6 +1216,9 @@ void drawGrass(float x, float y, float scale)
         return;
     if(currentSeason == SUMMER)
         glColor3ub(170, 150, 45);
+    else if(currentSeason == AUTUMN)
+        // Golden-brown grass in autumn
+        glColor3ub(196, 140, 55);
     else
         glColor3ub(40, 158, 45);
     glBegin(GL_TRIANGLES);
@@ -1205,7 +1423,7 @@ void drawSpringEnvironment()
 }
 
 // ======================================================
-// EXTRA EFFECTS  (J duck / K birds / M wind / N rainbow)
+// EXTRA EFFECTS  (J duck / K birds)
 // ======================================================
 
 // --- J: duck family crossing the road -------------------------
@@ -1214,7 +1432,7 @@ void drawSpringEnvironment()
 // bottom of the screen - a simple "crossing" motion. It is a
 // one-off foreground event, so it is NOT tied to worldMove; it
 // plays out entirely in fixed screen space over a couple of
-// seconds, the same way the rain/rainbow effect below does.
+// seconds.
 
 void startDuckCrossing()
 {
@@ -1502,195 +1720,6 @@ void drawBirdFlock()
 
         drawBird(bx, by, 1.0f, i, flap);
     }
-}
-
-// --- N: rain shower that clears into a rainbow -------------------
-
-void initRainDrops()
-{
-    for(int i = 0; i < RAIN_DROP_COUNT; i++)
-    {
-        rainDropX[i] = -100.0f + (float)(rand() % 201);
-        rainDropY[i] = -20.0f + (float)(rand() % 120);
-        rainDropSpeed[i] = 1.0f + (float)(rand() % 100) / 100.0f;
-    }
-}
-
-// Pressing N toggles the effect:
-//  - from idle, it kicks off the rain -> rise -> hold sequence
-//  - from anywhere mid-effect (rain, rising, or holding), it
-//    jumps straight into the fade-out
-//  - while it's already fading out, extra presses are ignored
-//    until it's fully gone, so a rapid double-press can't confuse it
-void startRainbow()
-{
-    if(currentSeason == WINTER && rainbowState == RAINBOW_IDLE)
-        return;
-
-    if(rainbowState == RAINBOW_IDLE)
-    {
-        rainbowState = RAINBOW_RAIN;
-        rainbowTimer = 0.0f;
-        initRainDrops();
-    }
-    else if(rainbowState == RAINBOW_RAIN || rainbowState == RAINBOW_RISE || rainbowState == RAINBOW_HOLD)
-    {
-        rainbowState = RAINBOW_FALL;
-        rainbowTimer = 0.0f;
-    }
-}
-
-void updateRainbowEffect()
-{
-    if(rainbowState == RAINBOW_IDLE)
-        return;
-
-    rainbowTimer += 0.05f;
-
-    if(rainbowState == RAINBOW_RAIN)
-    {
-        for(int i = 0; i < RAIN_DROP_COUNT; i++)
-        {
-            rainDropY[i] -= rainDropSpeed[i] * 2.2f;
-            if(rainDropY[i] < -20.0f)
-            {
-                rainDropY[i] = 95.0f;
-                rainDropX[i] = -100.0f + (float)(rand() % 201);
-            }
-        }
-        if(rainbowTimer >= rainRainDuration)
-        {
-            rainbowState = RAINBOW_RISE;
-            rainbowTimer = 0.0f;
-        }
-    }
-    else if(rainbowState == RAINBOW_RISE)
-    {
-        if(rainbowTimer >= rainbowRiseDuration)
-        {
-            rainbowState = RAINBOW_HOLD;
-            rainbowTimer = 0.0f;
-        }
-    }
-    else if(rainbowState == RAINBOW_HOLD)
-    {
-        // Fully visible and stays exactly like this - no timeout -
-        // until startRainbow() is called again to fade it out.
-    }
-    else if(rainbowState == RAINBOW_FALL)
-    {
-        if(rainbowTimer >= rainbowFadeDuration)
-        {
-            rainbowState = RAINBOW_IDLE;
-            rainbowTimer = 0.0f;
-        }
-    }
-}
-
-void drawRain()
-{
-    if(rainbowState != RAINBOW_RAIN)
-        return;
-
-    glColor3ub(180, 200, 230);
-    glLineWidth(1.0f);
-    glBegin(GL_LINES);
-    for(int i = 0; i < RAIN_DROP_COUNT; i++)
-    {
-        glVertex2f(rainDropX[i], rainDropY[i]);
-        glVertex2f(rainDropX[i] - 1.0f, rainDropY[i] - 4.0f);
-    }
-    glEnd();
-}
-
-void drawRainbow()
-{
-    if(rainbowState == RAINBOW_IDLE || rainbowState == RAINBOW_RAIN)
-        return;
-
-    float envelope = 1.0f;
-    if(rainbowState == RAINBOW_RISE)
-        envelope = rainbowTimer / rainbowRiseDuration;
-    else if(rainbowState == RAINBOW_FALL)
-        envelope = 1.0f - (rainbowTimer / rainbowFadeDuration);
-
-    if(envelope < 0.0f) envelope = 0.0f;
-    if(envelope > 1.0f) envelope = 1.0f;
-    if(envelope <= 0.0f)
-        return;
-
-    // Seven bands, drawn as solid filled rings (outer radius down
-    // to inner radius) instead of thin separate outlines. Each
-    // band's inner edge is exactly the next band's outer edge, so
-    // the colors sit flush against one another with no visible
-    // sky gap in between - a real ribbon rather than a wireframe.
-    int bandColors[7][3] = {
-        { 230, 50, 50 },    // red
-        { 240, 130, 30 },   // orange
-        { 245, 215, 50 },   // yellow
-        { 70, 180, 90 },    // green
-        { 60, 130, 230 },   // blue
-        { 80, 80, 220 },    // indigo
-        { 160, 70, 200 }    // violet
-    };
-
-    float cx = 0.0f;
-    float cy = -20.0f;
-    float bandWidth = 4.4f;
-    float outerRadius = 78.0f;
-
-    const int SEGMENTS = 96;
-
-    glEnable(GL_BLEND);
-
-    // A soft white glow just outside the red band, so the arc
-    // reads as a gentle glowing ribbon instead of a hard-edged
-    // shape cut against the sky.
-    {
-        float haloOuter = outerRadius + 3.5f;
-        float haloInner = outerRadius;
-
-        glBegin(GL_QUAD_STRIP);
-        for(int i = 0; i <= SEGMENTS; i++)
-        {
-            float t = PI * (float)i / SEGMENTS;
-            // Fades to nothing at both ends (near the horizon) and
-            // is strongest at the top of the arc.
-            float edgeFade = (float)sin(t);
-            GLubyte a = (GLubyte)(envelope * edgeFade * 60.0f);
-
-            glColor4ub(255, 255, 255, a);
-            glVertex2f(cx + haloOuter * cos(t), cy + haloOuter * sin(t));
-            glVertex2f(cx + haloInner * cos(t), cy + haloInner * sin(t));
-        }
-        glEnd();
-    }
-
-    for(int band = 0; band < 7; band++)
-    {
-        float rOuter = outerRadius - band * bandWidth;
-        float rInner = rOuter - bandWidth;
-
-        glBegin(GL_QUAD_STRIP);
-        for(int i = 0; i <= SEGMENTS; i++)
-        {
-            float t = PI * (float)i / SEGMENTS;
-            float edgeFade = (float)sin(t);
-            GLubyte a = (GLubyte)(envelope * edgeFade * 210.0f);
-
-            glColor4ub(
-                (GLubyte)bandColors[band][0],
-                (GLubyte)bandColors[band][1],
-                (GLubyte)bandColors[band][2],
-                a
-            );
-            glVertex2f(cx + rOuter * cos(t), cy + rOuter * sin(t));
-            glVertex2f(cx + rInner * cos(t), cy + rInner * sin(t));
-        }
-        glEnd();
-    }
-
-    glDisable(GL_BLEND);
 }
 
 // ======================================================
@@ -2351,7 +2380,6 @@ void drawHintBox()
     drawText(-93, 44, "J   DUCKS CROSS ROAD");
     drawText(-93, 36, "S   DRIVE ON AFTER DUCKS");
     drawText(-93, 28, "K   BIRDS FLYING");
-    drawText(-93, 20, "N   RAINBOW (TOGGLE)");
     drawText(-93, 12, "V   FIRST-PERSON VIEW");
     drawText(-93, 0,  "ANY SEASON:");
     drawText(-93, -8, "A/D STEER LEFT/RIGHT");
@@ -2418,6 +2446,8 @@ void updateSeasonTransition()
         if(seasonScreenTimer >= 1.0f)
         {
             currentSeason = targetSeason;
+            if(currentSeason == AUTUMN)
+                resetAutumnLeaves();
             carInsideTunnel = false;
             tunnelOnRight = false;
             tunnelOnLeft = true;
@@ -3180,8 +3210,6 @@ void display()
     drawSky();
     drawSun();
     drawClouds();
-    drawRain();
-    drawRainbow();
     if(currentSeason == WINTER)
     {
         drawWinterMountains();
@@ -3201,9 +3229,18 @@ void display()
         {drawGrassField();}
     if(currentSeason == SPRING)
         {drawSpringEnvironment();}
+    if(currentSeason == AUTUMN)
+    {
+        // Landed leaves are drawn first so they sit on the ground
+        // under the trees/forest bg; falling leaves draw last so
+        // they're never hidden behind a tree trunk or canopy.
+        drawLandedAutumnLeaves();
+    }
     drawBirdFlock();
     if(currentSeason == WINTER)
         {drawSnow();}
+    if(currentSeason == AUTUMN)
+        {drawFallingAutumnLeaves();}
     drawBench();
     drawDuckFamily();
     if(tunnelVisible && transitionStage != 3)
@@ -3280,10 +3317,14 @@ void update(int value)
         }
         if(currentSeason == WINTER)
             updateSnow();
+        if(currentSeason == AUTUMN)
+        {
+            autumnTime += 0.05f;
+            updateAutumnLeaves();
+        }
 
         updateDuckCrossing();
         updateBirdFlock();
-        updateRainbowEffect();
         updatePovBlink();
         if(povActive)
             povWheelTime += 0.05f;
@@ -3296,9 +3337,9 @@ void update(int value)
 // KEYBOARD
 // ======================================================
 
-// Shared gate for the effect keys (J/K/N/V): only while the
+// Shared gate for the effect keys (J/K/V): only while the
 // man is actually driving, nothing else is mid-transition, and
-// only during SPRING - the ducks, birds, rainbow and first-person
+// only during SPRING - the ducks, birds and first-person
 // view are all spring-only flourishes, so none of them fire in
 // the default sedlife state or in summer/rainy/autumn/winter.
 // A/D steering deliberately does NOT go through this gate, since
@@ -3336,16 +3377,14 @@ void startSeasonChange(int season)
     povBlinkStage = 0;
     povBlinkTimer = 0.0f;
 
-    // The J/K/N flourishes are spring-only too, so anything still
+    // The J/K flourishes are spring-only too, so anything still
     // playing is cleared here - otherwise a duck family mid-cross
-    // (or a held rainbow) would carry straight over into summer or
-    // winter, where it has no business being.
+    // would carry straight over into summer or winter, where it
+    // has no business being.
     duckActive = false;
     duckStopActive = false;
     duckWaitingResume = false;
     birdActive = false;
-    rainbowState = RAINBOW_IDLE;
-    rainbowTimer = 0.0f;
 }
 
 void keyboard(unsigned char key, int x, int y)
@@ -3400,14 +3439,9 @@ void keyboard(unsigned char key, int x, int y)
         if(canTriggerEffect())
             startBirdFlock();
     }
-    else if(key == 'n' || key == 'N')
-    {
-        if(canTriggerEffect())
-            startRainbow();
-    }
     else if(key == 'v' || key == 'V')
     {
-        // Same driving-only gate as J/K/N. It also covers
+        // Same driving-only gate as J/K. It also covers
         // toggling back OUT of the pov, since being in the pov
         // doesn't change manState - the man is still "in the car"
         // the whole time.
@@ -3459,6 +3493,7 @@ void init()
     gluOrtho2D(-100, 100, -60, 100);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     initSnow();
+    initAutumnLeaves();
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 }
