@@ -24,17 +24,6 @@ bool automaticMode = false;
 // ======================================================
 // JOURNEY STATE  (F starts it, 9 ends it)
 // ======================================================
-//
-// Before F is pressed:
-//   - the man is sitting on the grass
-//   - the car stands still with the headlight off
-//
-// F  : the man walks to the car, gets in, the engine turns
-//      on and the car pulls away
-// 0-5: the seasons, and with them the man's age
-// 9  : the car slows down, a bench comes into view, the man
-//      gets out and sits on the bench - the end
-//
 bool journeyStarted = false;   // true while the car is rolling
 bool manInCar = false;         // true only while he is driving
 
@@ -44,13 +33,6 @@ bool manInCar = false;         // true only while he is driving
 
 bool changingSeason = false;
 
-// 0 = normal running
-// 1 = tunnel on right, car approaching
-// 2 = car entering right tunnel
-// 3 = black season screen
-// 4 = new season, tunnel on left, car coming out
-// 5 = car reached the middle; tunnel continues moving left
-// 6 = tunnel has left the window; transition finished
 int transitionStage = 0;
 
 bool tunnelVisible = false;
@@ -62,19 +44,6 @@ bool carInsideTunnel = false;
 // WORLD MOVEMENT
 // ======================================================
 
-// Forest and ground objects now use a 300-unit cycle.
-// The visible screen is only -100 to +100.
-// Therefore objects can exist from about -150 to +150.
-//
-// worldMove is kept as the "reference" scroll speed and is
-// still used to drive the road stripes (they must always
-// match the car's actual travel speed 1:1).
-//
-// Every other background layer now has its OWN offset and its
-// OWN speed multiplier, so each layer scrolls independently.
-// This gives a simple parallax effect: layers meant to feel
-// closer to the camera move a bit faster than worldSpeed,
-// layers meant to feel farther away move slower.
 float worldMove = 0.0f;
 
 // worldSpeed starts at 0 (car parked), climbs to worldSpeedMax
@@ -94,10 +63,6 @@ float mountainMove = 0.0f;    // distant mountains
 float roadGrassMove = 0.0f;   // little grass tufts along the road edge
 float winterBgMove = 0.0f;    // winter background sweep
 
-// --- Per-layer speed multipliers, relative to worldSpeed ---
-// < 1.0 = feels farther away (moves slower than the road)
-// = 1.0 = moves with the road
-// > 1.0 = feels closer to the camera (moves faster than the road)
 float forestSpeedMul = 1.00f;
 float grassSpeedMul = 1.05f;
 float bgGrassSpeedMul = 0.85f;
@@ -159,9 +124,6 @@ float treeY[TREE_COUNT] = {
     -22, -25, -21, -23, -22, -24, -20, -23, -22, -24
 };
 
-// 0 = Round
-// 1 = Pine
-// 2 = Bushy Triangle
 int treeType[TREE_COUNT] = {
     2, 0, 1, 2, 0, 1, 2, 0, 1, 2,
     0, 1, 2, 0, 1, 2, 0, 1, 2, 0
@@ -275,10 +237,6 @@ float butterflyTime = 0.0f;
 // ======================================================
 // BEE HIVE  (ambient, no button - always present in spring)
 // ======================================================
-// A small paper-lantern hive tucked into the branches of one
-// specific round tree, with a few bees orbiting the entrance.
-// Purely decorative background detail, drawn automatically
-// whenever it's spring - no key triggers it.
 
 const int BEE_HIVE_TREE_INDEX = 1;   // must be a round tree (type 0)
 
@@ -309,24 +267,6 @@ float roadGrassScale[ROAD_GRASS_COUNT] = { 0.28f, 0.22f, 0.30f, 0.24f, 0.27f, 0.
 // ======================================================
 // AUTUMN LEAVES DATA
 // ======================================================
-// A small, LIMITED pool of leaves is always "in flight" at once
-// (AUTUMN_LEAF_COUNT). Each one spawns from a real tree's canopy
-// position/height (not a random screen point), falls + sways
-// down, and - when it reaches the ground - is copied into a
-// second, separate pool of LANDED leaves that stay drawn forever
-// (up to MAX_LANDED_LEAVES) instead of vanishing. That's what
-// gives the "leaves accumulate on the ground" look.
-//
-// The screen has two ground bands a leaf can settle on:
-//   - the green grass strip, roughly y = -20 down to y = -40
-//   - the darker road strip, roughly y = -40 down to y = -58
-// Most leaves land in the grass right where they fell; a smaller
-// share get blown further down and settle on the road.
-//
-// Every position here (falling AND landed) is stored as a "base"
-// x that gets worldMove added at draw/update time, exactly like
-// the trees/grass/flowers - so a leaf stays visually attached to
-// the scrolling world instead of drifting away from it.
 
 const int AUTUMN_LEAF_COUNT = 26;
 
@@ -352,6 +292,40 @@ int   landedLeafColor[MAX_LANDED_LEAVES];
 int   landedLeafCount = 0;
 
 // ======================================================
+// RAINY SEASON DATA
+// ======================================================
+
+const int RAIN_COUNT = 220;
+float rainX[RAIN_COUNT];
+float rainY[RAIN_COUNT];
+float rainSpeed[RAIN_COUNT];
+
+// Each puddle is a small irregular polygon, so they read as
+// real splashes of water rather than perfect ellipses.
+const int PUDDLE_COUNT = 4;
+const int PUDDLE_VERTS = 6;
+
+float puddleVertX[PUDDLE_COUNT][PUDDLE_VERTS] = {
+    { -85, -65, -60, -68, -83, -88 },
+    { -38, -15, -10, -18, -35, -42 },
+    {  20,  43,  48,  38,  18,  15 },
+    {  60,  82,  88,  78,  58,  55 }
+};
+
+float puddleVertY[PUDDLE_COUNT][PUDDLE_VERTS] = {
+    { -36, -36, -38, -40, -39, -37 },
+    { -49, -49, -51, -53, -52, -50 },
+    { -34, -34, -36, -38, -37, -35 },
+    { -53, -53, -55, -57, -56, -54 }
+};
+
+float puddleCenterX[PUDDLE_COUNT] = { -75, -26, 30, 70 };
+
+// Lightning is a single bright flash that decays away; T fires it.
+float lightningAlpha = 0.0f;
+float lightningBoltX = 0.0f;
+
+// ======================================================
 // CLOUD VARIABLES
 // ======================================================
 
@@ -364,14 +338,6 @@ float cloud5X = 40;
 // ======================================================
 // EXTRA EFFECTS STATE  (J / K / N)
 // ======================================================
-// Four independent, button-triggered scene flourishes:
-//   J - a duck family waddles across the road
-//   K - a temporary burst of extra butterflies (spring only)
-// Each is a simple "active flag + timer" state, same pattern as
-// the rest of the file (seasonScreenTimer, updateEnding, etc.).
-// All of them are screen-space effects (not tied to worldMove),
-// since they are short foreground/overlay events rather than
-// part of the scrolling background.
 
 // --- Duck / animal crossing ---
 bool duckActive = false;
@@ -379,28 +345,12 @@ float duckX = 0.0f;
 float duckY = -38.0f;
 float duckTimer = 0.0f;
 
-// --- Duck crossing brings the car to a halt ---
-// The moment the family steps onto the road the car brakes to a
-// full stop on its own, waits for them to finish crossing, and
-// then sits there until the player presses S to pull away again.
-//   duckStopActive    : true from the first step onto the road
-//                       until S is pressed - blocks the normal
-//                       acceleration and actively brakes.
-//   duckWaitingResume : true once the ducks are clear, so S is
-//                       only accepted after they've actually
-//                       finished crossing (not mid-road).
 bool duckStopActive = false;
 bool duckWaitingResume = false;
 float duckBrake = 0.02f;   // how hard the car brakes for them
 
 const int DUCKLING_COUNT = 3;
 
-// Each duckling no longer sits at a fixed offset (which made the
-// whole family slide as one rigid block). Instead the parent's
-// exact path is recorded every frame into a short trail, and each
-// duckling reads its position from a few frames back in that
-// trail - so they genuinely follow in the parent's footsteps, one
-// behind the other, the way a real duck line moves.
 #define DUCK_TRAIL_LEN 150
 float duckTrailX[DUCK_TRAIL_LEN];
 float duckTrailY[DUCK_TRAIL_LEN];
@@ -423,15 +373,6 @@ float birdOffsetX[BIRD_COUNT] = { 0.0f, -4.5f, -4.5f, -9.0f, -9.0f, -13.5f };
 float birdOffsetY[BIRD_COUNT] = { 0.0f,  2.2f, -2.2f,  4.4f, -4.4f,  6.2f };
 float birdFlapPhase[BIRD_COUNT] = { 0.0f, 1.1f, 2.3f, 3.4f, 4.6f, 5.7f };
 
-// --- V: first-person POV, with a quick black blink ---
-// A short black flash (like an eye-blink), then the view cuts to
-// a first-person shot from inside the car: hands on the wheel,
-// looking out through the windshield at the road and forest going
-// by. Pressing V again blinks back to the normal third-person
-// scene. It is purely a screen-space overlay drawn at the very
-// end of display() - it never touches worldMove or any of the
-// driving/season state underneath, so the journey keeps going
-// exactly the same whether you're looking at it or not.
 bool povActive = false;
 
 // 0 = not blinking, 1 = blinking INTO the pov, 2 = blinking back
@@ -445,12 +386,6 @@ float povWheelTime = 0.0f;       // drives the road-dash scroll and the wheel's 
 // ======================================================
 // STEERING  (A / D)
 // ======================================================
-// Simple continuous left/right steering while driving: holding A
-// nudges the car toward the left edge of the road, holding D
-// toward the right. Tracked as key-down flags, set by keyboard()
-// and cleared by keyboardUp(), so the car keeps moving smoothly
-// for as long as the key stays held rather than jumping one fixed
-// step per keypress.
 bool steerLeftDown = false;
 bool steerRightDown = false;
 float carSteerSpeed = 0.9f;
@@ -461,6 +396,7 @@ float carSteerMax = 70.0f;
 // BASIC SHAPES
 // ======================================================
 
+// (Talha) filled quad
 void rectangle(float x1, float y1, float x2, float y2)
 {
     glBegin(GL_QUADS);
@@ -471,6 +407,7 @@ void rectangle(float x1, float y1, float x2, float y2)
     glEnd();
 }
 
+// (Talha) filled circle (100 segments)
 void circle(float x, float y, float radius)
 {
     glBegin(GL_POLYGON);
@@ -484,6 +421,7 @@ void circle(float x, float y, float radius)
     glEnd();
 }
 
+// (Talha) filled triangle
 void triangleShape(float x1, float y1, float x2, float y2, float x3, float y3)
 {
     glBegin(GL_TRIANGLES);
@@ -493,9 +431,7 @@ void triangleShape(float x1, float y1, float x2, float y2, float x3, float y3)
     glEnd();
 }
 
-// A circle stretched independently on x and y, used for duck
-// bodies/heads so they read as soft ovals instead of perfect
-// circles.
+// (Sanzida) oval (stretched circle)
 void ellipse(float x, float y, float rx, float ry)
 {
     glBegin(GL_POLYGON);
@@ -507,12 +443,7 @@ void ellipse(float x, float y, float rx, float ry)
     glEnd();
 }
 
-// A rectangle (quad) centred at (cx, cy) whose long axis points
-// along the given unit vector (ux, uy), rather than always being
-// screen-aligned. Used to build hands/fingers out of quads that
-// actually follow the angle of whatever they're attached to
-// (like a wheel rim at an arbitrary angle) instead of sitting in
-// a fixed horizontal/vertical box regardless of orientation.
+// (Sanzida) quad rotated along a direction vector
 void orientedQuad(float cx, float cy, float ux, float uy, float halfLen, float halfWidth)
 {
     float vx = -uy;
@@ -526,7 +457,7 @@ void orientedQuad(float cx, float cy, float ux, float uy, float halfLen, float h
     glEnd();
 }
 
-// Simple bitmap text helper.
+// (Talha) bitmap text
 void drawText(float x, float y, const char *text)
 {
     glRasterPos2f(x, y);
@@ -534,10 +465,7 @@ void drawText(float x, float y, const char *text)
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, text[i]);
 }
 
-// Takes a base color and a shade factor (e.g. 0.7 = darker,
-// 1.3 = lighter) and applies it, clamped to [0,255].
-// Used to give each leaf circle/triangle on a tree its own
-// distinct shade of the season's base foliage color.
+// (Talha) lighten / darken a base colour
 void shadedColor(int r, int g, int b, float factor)
 {
     int nr = (int)(r * factor);
@@ -560,16 +488,11 @@ void shadedColor(int r, int g, int b, float factor)
 // AUTUMN LEAVES  -  SPAWN / INIT / RESET
 // ======================================================
 
-// Sends one falling leaf back up into a randomly chosen tree's
-// canopy with a fresh speed/sway/color, and picks a new landing
-// spot (grass or road) for it to aim for.
+// (Sanzida) send one leaf back up to a tree canopy
 void respawnAutumnLeaf(int i)
 {
     int treeIndex = rand() % TREE_COUNT;
 
-    // Originate from that tree's canopy: near its trunk x (with a
-    // little spread across the canopy width) and near its canopy
-    // height (taller/bigger trees drop leaves from higher up).
     autumnLeafBaseX[i] = treeX[treeIndex] + (float)((rand() % 25) - 12);
     autumnLeafY[i] = treeY[treeIndex] + (55.0f + (float)(rand() % 20)) * treeScale[treeIndex];
 
@@ -588,6 +511,7 @@ void respawnAutumnLeaf(int i)
         autumnLeafLandY[i] = -43.0f - (float)(rand() % 13); // road:  -43 .. -55
 }
 
+// (Sanzida) seed the falling leaves
 void initAutumnLeaves()
 {
     for(int i = 0; i < AUTUMN_LEAF_COUNT; i++)
@@ -602,9 +526,7 @@ void initAutumnLeaves()
     landedLeafCount = 0;
 }
 
-// Clears the ground leaf pool and restarts the falling leaves -
-// called each time the scene transitions INTO autumn so every
-// visit starts from a clean, gradually-accumulating forest floor.
+// (Sanzida) clear the ground leaves
 void resetAutumnLeaves()
 {
     landedLeafCount = 0;
@@ -613,6 +535,7 @@ void resetAutumnLeaves()
         respawnAutumnLeaf(i);
 }
 
+// (Susmita) seed the snowflakes
 void initSnow()
 {
     for(int i = 0; i < SNOW_COUNT; i++)
@@ -623,6 +546,7 @@ void initSnow()
     }
 }
 
+// (Susmita) snowfall
 void drawSnow()
 {
     if(currentSeason != WINTER)
@@ -634,6 +558,7 @@ void drawSnow()
     }
 }
 
+// (Susmita) snowflake fall and reset
 void updateSnow()
 {
     if(currentSeason != WINTER)
@@ -656,9 +581,7 @@ void updateSnow()
 // AUTUMN LEAVES  -  DRAW / UPDATE
 // ======================================================
 
-// Draws one small rotated leaf (a simple kite/diamond shape with
-// a center vein) at (cx, cy). rotDeg controls its tumble as it
-// falls; colorType picks orange/red/yellow.
+// (Sanzida) one rotated leaf
 void drawLeafShape(float cx, float cy, float size, float rotDeg, int colorType)
 {
     switch(colorType)
@@ -700,7 +623,7 @@ void drawLeafShape(float cx, float cy, float size, float rotDeg, int colorType)
     glEnd();
 }
 
-// Leaves still drifting down from the canopy.
+// (Sanzida) leaves still falling
 void drawFallingAutumnLeaves()
 {
     if(currentSeason != AUTUMN)
@@ -718,10 +641,7 @@ void drawFallingAutumnLeaves()
     }
 }
 
-// Leaves that have already reached the ground (grass or road) and
-// stay there. They scroll with the same offset the trees use, so
-// they stay put relative to the ground instead of sliding
-// independently of it.
+// (Sanzida) leaves resting on the ground
 void drawLandedAutumnLeaves()
 {
     if(currentSeason != AUTUMN)
@@ -737,6 +657,7 @@ void drawLandedAutumnLeaves()
     }
 }
 
+// (Sanzida) fall, sway and land
 void updateAutumnLeaves()
 {
     if(currentSeason != AUTUMN)
@@ -747,9 +668,6 @@ void updateAutumnLeaves()
         autumnLeafY[i] -= autumnLeafSpeed[i];
         autumnLeafRot[i] += autumnLeafRotSpeed[i];
 
-        // Each leaf has its own target landing height, assigned
-        // when it spawned - either the grass strip or the road
-        // strip (see respawnAutumnLeaf()).
         if(autumnLeafY[i] <= autumnLeafLandY[i])
         {
             if(landedLeafCount < MAX_LANDED_LEAVES)
@@ -773,12 +691,15 @@ void updateAutumnLeaves()
 // SKY / SUN / GROUND
 // ======================================================
 
+// (Talha) sky, colour per season
 void drawSky()
 {
     if(currentSeason == SPRING)
         glColor3ub(150, 217, 255);
     else if(currentSeason == SUMMER)
         glColor3ub(105, 195, 255);
+    else if(currentSeason == RAINY)
+        glColor3ub(70, 78, 92);
     else if(currentSeason == WINTER)
         glColor3ub(180, 210, 235);
     else if(currentSeason == AUTUMN)
@@ -788,9 +709,11 @@ void drawSky()
     rectangle(-100, -20, 100, 100);
 }
 
+// (Talha) sun disc
 void drawSun()
 {
-    if(currentSeason == WINTER)
+    // No sun disc in winter, and none behind the rain clouds either.
+    if(currentSeason == WINTER || currentSeason == RAINY)
         return;
     if(currentSeason == SUMMER)
         glColor3ub(255, 180, 20);
@@ -799,12 +722,15 @@ void drawSun()
     circle(75, 78, 9);
 }
 
+// (Talha) ground band
 void drawGround()
 {
     if(currentSeason == SPRING)
         glColor3ub(72, 168, 58);
     else if(currentSeason == SUMMER)
         glColor3ub(190, 170, 75);
+    else if(currentSeason == RAINY)
+        glColor3ub(30, 68, 34);
     else if(currentSeason == WINTER)
         glColor3ub(235, 240, 245);
     else if(currentSeason == AUTUMN)
@@ -818,15 +744,21 @@ void drawGround()
 // CLOUDS
 // ======================================================
 
+// (Talha) one cloud
 void drawCloud(float x, float y, float size)
 {
-    glColor3ub(242, 242, 242);
+    // Heavy, near-black storm clouds in the rainy season.
+    if(currentSeason == RAINY)
+        glColor3ub(40, 42, 52);
+    else
+        glColor3ub(242, 242, 242);
     circle(x - size * 0.8f, y, size * 0.7f);
     circle(x, y + 2, size);
     circle(x + size * 0.8f, y, size * 0.8f);
     rectangle(x - size * 0.8f, y - size * 0.5f, x + size * 0.8f, y + size * 0.35f);
 }
 
+// (Talha) all clouds
 void drawClouds()
 {
     drawCloud(cloud1X, 80, 7);
@@ -836,6 +768,7 @@ void drawClouds()
     drawCloud(cloud3X, 60, 5);
 }
 
+// (Talha) cloud drift
 void updateClouds()
 {
     if(currentSeason != RAINY)
@@ -850,9 +783,174 @@ void updateClouds()
 }
 
 // ======================================================
+// RAIN, PUDDLES AND LIGHTNING  (rainy season)
+// ======================================================
+
+// (Rakib) seed the raindrops
+void initRain()
+{
+    for(int i = 0; i < RAIN_COUNT; i++)
+    {
+        rainX[i] = -100 + (i * 37) % 200;
+        rainY[i] = -60 + (i * 53) % 160;
+        rainSpeed[i] = 0.8f + (i % 5) * 0.1f;
+    }
+}
+
+// (Rakib) one slanted drop
+void drawRainDrop(float x, float y)
+{
+    glColor3ub(180, 220, 255);
+    glLineWidth(1.5f);
+    glBegin(GL_LINES);
+    glVertex2f(x, y);
+    glVertex2f(x - 1.2f, y - 5.0f);
+    glEnd();
+}
+
+// (Rakib) rainfall
+void drawRain()
+{
+    if(currentSeason != RAINY)
+        return;
+
+    // Drops below the road line are skipped, so the rain looks
+    // like it lands rather than falling through the ground.
+    for(int i = 0; i < RAIN_COUNT; i++)
+        if(rainY[i] >= -40)
+            drawRainDrop(rainX[i], rainY[i]);
+}
+
+// (Rakib) raindrop fall and reset
+void updateRain()
+{
+    if(currentSeason != RAINY)
+        return;
+
+    for(int i = 0; i < RAIN_COUNT; i++)
+    {
+        rainY[i] -= rainSpeed[i];
+        if(rainY[i] < -60)
+        {
+            rainY[i] = 100;
+            rainX[i] = -100 + (i * 37) % 200;
+        }
+    }
+}
+
+// (Rakib) puddles on the ground
+void drawPuddles()
+{
+    if(currentSeason != RAINY)
+        return;
+
+    for(int p = 0; p < PUDDLE_COUNT; p++)
+    {
+        float shiftedCenter = puddleCenterX[p] + worldMove;
+        while(shiftedCenter > 110) shiftedCenter -= 220;
+        while(shiftedCenter < -110) shiftedCenter += 220;
+        float delta = shiftedCenter - puddleCenterX[p];
+
+        glColor3ub(70, 100, 120);
+        glBegin(GL_POLYGON);
+        for(int v = 0; v < PUDDLE_VERTS; v++)
+            glVertex2f(puddleVertX[p][v] + delta, puddleVertY[p][v]);
+        glEnd();
+
+        // A pale streak across the top of each puddle, so it
+        // reads as a wet reflective surface.
+        float hx = puddleVertX[p][1] + delta - 4.0f;
+        float hy = puddleVertY[p][1] - 1.0f;
+        glColor3ub(150, 180, 195);
+        glBegin(GL_POLYGON);
+        glVertex2f(hx - 5.0f, hy);
+        glVertex2f(hx + 3.0f, hy);
+        glVertex2f(hx + 1.0f, hy - 1.2f);
+        glVertex2f(hx - 6.0f, hy - 1.0f);
+        glEnd();
+    }
+}
+
+// (Rakib) dark overcast sheet
+void drawStormOverlay()
+{
+    if(currentSeason != RAINY)
+        return;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4ub(15, 18, 30, 110);
+    rectangle(-100, -60, 100, 100);
+    glDisable(GL_BLEND);
+}
+
+// (Rakib) zig-zag bolt
+void drawLightningBolt(float x)
+{
+    if(lightningAlpha <= 40.0f)
+        return;
+
+    glColor3ub(150, 190, 255);
+    glLineWidth(6.0f);
+    glBegin(GL_LINE_STRIP);
+    glVertex2f(x, 95); glVertex2f(x - 4, 78);
+    glVertex2f(x + 2, 78); glVertex2f(x - 6, 58);
+    glVertex2f(x + 3, 58); glVertex2f(x - 3, 38);
+    glVertex2f(x + 5, 38); glVertex2f(x, 18);
+    glEnd();
+
+    glColor3ub(235, 240, 255);
+    glLineWidth(2.5f);
+    glBegin(GL_LINE_STRIP);
+    glVertex2f(x, 95); glVertex2f(x - 4, 78);
+    glVertex2f(x + 2, 78); glVertex2f(x - 6, 58);
+    glVertex2f(x + 3, 58); glVertex2f(x - 3, 38);
+    glVertex2f(x + 5, 38); glVertex2f(x, 18);
+    glEnd();
+}
+
+// (Rakib) lightning flash
+void drawLightning()
+{
+    if(currentSeason != RAINY || lightningAlpha <= 1.0f)
+        return;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4ub(210, 220, 255, (GLubyte)lightningAlpha);
+    rectangle(-100, -60, 100, 100);
+    drawLightningBolt(lightningBoltX);
+    glDisable(GL_BLEND);
+}
+
+// (Rakib) flash fade-out
+void updateLightning()
+{
+    if(currentSeason != RAINY)
+    {
+        lightningAlpha = 0.0f;
+        return;
+    }
+
+    if(lightningAlpha > 1.0f)
+        lightningAlpha *= 0.80f;
+}
+
+// (Rakib) fire a flash (key T)
+void triggerThunder()
+{
+    if(currentSeason == RAINY)
+    {
+        lightningBoltX = -55.0f + (float)(rand() % 111);
+        lightningAlpha = 255.0f;
+    }
+}
+
+// ======================================================
 // MOUNTAINS
 // ======================================================
 
+// (Susmita) winter mountain range
 void drawWinterMountains()
 {
     if(currentSeason != WINTER)
@@ -886,6 +984,7 @@ float mountainHeight[MOUNTAIN_COUNT] = {
     46, 42, 60, 45, 70, 40
 };
 
+// (Talha) 6 mountains with snow caps
 void drawMountains()
 {
     if(currentSeason == WINTER)
@@ -924,6 +1023,7 @@ void drawMountains()
 // WINTER BACKGROUND
 // ======================================================
 
+// (Susmita) winter background trees
 void drawWinterBackground()
 {
     if(currentSeason != WINTER)
@@ -941,6 +1041,7 @@ void drawWinterBackground()
 // TREE / LEAF / BRANCH / FOREST
 // ======================================================
 
+// (Susmita) bare winter tree
 void drawWinterBareTree(float x, float y, float scale, int type)
 {
     glColor3ub(78, 49, 30);
@@ -974,6 +1075,7 @@ void drawWinterBareTree(float x, float y, float scale, int type)
     glEnd();
 }
 
+// (Talha) round tree trunk
 void drawRoundTreeTrunk(float x, float y, float scale)
 {
     glColor3ub(89, 46, 18);
@@ -985,6 +1087,7 @@ void drawRoundTreeTrunk(float x, float y, float scale)
     glEnd();
 }
 
+// (Talha) pine trunk
 void drawPineTreeTrunk(float x, float y, float scale)
 {
     glColor3ub(89, 46, 18);
@@ -996,6 +1099,7 @@ void drawPineTreeTrunk(float x, float y, float scale)
     glEnd();
 }
 
+// (Talha) bushy tree trunk
 void drawBushyTreeTrunk(float x, float y, float scale)
 {
     glColor3ub(89, 46, 18);
@@ -1007,6 +1111,7 @@ void drawBushyTreeTrunk(float x, float y, float scale)
     glEnd();
 }
 
+// (Talha) branches
 void drawBranches(float x, float y, float scale)
 {
     glColor3ub(77, 38, 13);
@@ -1020,11 +1125,7 @@ void drawBranches(float x, float y, float scale)
     glEnd();
 }
 
-// Each of the 5 leaf circles gets its own shade of the
-// season's base foliage color instead of one flat color.
-// Light is treated as coming from the upper right (where the
-// sun is drawn), so blobs up and to the right are a touch
-// lighter, blobs down and to the left a touch darker.
+// (Talha) round tree foliage
 void drawTreeLeaves(float x, float y, float scale)
 {
     int r, g, b;
@@ -1058,6 +1159,7 @@ void drawTreeLeaves(float x, float y, float scale)
     circle(x + 8 * scale, y + 40 * scale, 12 * scale);
 }
 
+// (Talha) round tree
 void drawTreeRound(float x, float y, float scale)
 {
     drawRoundTreeTrunk(x, y, scale);
@@ -1065,7 +1167,7 @@ void drawTreeRound(float x, float y, float scale)
     drawTreeLeaves(x, y, scale);
 }
 
-// Left unchanged (flat color) per request - pine excluded.
+// (Talha) pine foliage
 void drawPineLeaves(float x, float y, float scale)
 {
     if(currentSeason == SPRING)
@@ -1082,20 +1184,20 @@ void drawPineLeaves(float x, float y, float scale)
     triangleShape(x - 9 * scale, y + 54 * scale, x + 9 * scale, y + 54 * scale, x, y + 72 * scale);
 }
 
+// (Talha) pine tree
 void drawTreePine(float x, float y, float scale)
 {
     drawPineTreeTrunk(x, y, scale);
     drawPineLeaves(x, y, scale);
 }
 
+// (Talha) one triangular leaf
 void leafTriangle(float cx, float cy, float size)
 {
     triangleShape(cx - size, cy - size * 0.6f, cx + size, cy - size * 0.6f, cx, cy + size * 0.9f);
 }
 
-// Each of the 6 leaf triangles gets its own shade of the
-// season's base foliage color instead of one flat color, using
-// the same soft, upper-right light logic as the round tree.
+// (Talha) bushy foliage
 void drawBushyTriangleLeaves(float x, float y, float scale)
 {
     int r, g, b;
@@ -1130,6 +1232,7 @@ void drawBushyTriangleLeaves(float x, float y, float scale)
     leafTriangle(x, y + 62 * scale, 18 * scale);
 }
 
+// (Talha) bushy tree
 void drawTreeBushy(float x, float y, float scale)
 {
     drawBushyTreeTrunk(x, y, scale);
@@ -1137,6 +1240,7 @@ void drawTreeBushy(float x, float y, float scale)
     drawBushyTriangleLeaves(x, y, scale);
 }
 
+// (Talha) pick tree by type
 void drawTree(float x, float y, float scale, int type)
 {
     if(currentSeason == WINTER)
@@ -1152,14 +1256,7 @@ void drawTree(float x, float y, float scale, int type)
         drawTreeBushy(x, y, scale);
 }
 
-// IMPORTANT:
-// Trees disappear at approximately -150.
-// Because the world moves LEFT, they are recycled to +150.
-//
-// This gives extra forest outside the visible screen.
-//
-// Trees now scroll on their own independent offset
-// (forestMove), separate from the road / other layers.
+// (Talha) the tree row
 void drawForest()
 {
     for(int i = 0; i < TREE_COUNT; i++)
@@ -1177,6 +1274,7 @@ void drawForest()
 // FOREST BACKGROUND
 // ======================================================
 
+// (Sanzida) one background tuft
 void drawForestBgGrass(float x, float y, float scale)
 {
     if(currentSeason == WINTER)
@@ -1195,6 +1293,7 @@ void drawForestBgGrass(float x, float y, float scale)
     glEnd();
 }
 
+// (Sanzida) background grass strip
 void drawForestBg()
 {
     for(int i = 0; i < FOREST_BG_COUNT; i++)
@@ -1210,6 +1309,7 @@ void drawForestBg()
 // GRASS
 // ======================================================
 
+// (Sanzida) one grass tuft
 void drawGrass(float x, float y, float scale)
 {
     if(currentSeason == WINTER)
@@ -1229,6 +1329,7 @@ void drawGrass(float x, float y, float scale)
     glEnd();
 }
 
+// (Sanzida) grass field
 void drawGrassField()
 {
     if(currentSeason == WINTER)
@@ -1243,6 +1344,7 @@ void drawGrassField()
     }
 }
 
+// (Sanzida) grass at the road edge
 void drawRoadGrass()
 {
     if(currentSeason == WINTER)
@@ -1260,6 +1362,7 @@ void drawRoadGrass()
 // FLOWERS
 // ======================================================
 
+// (Sanzida) one flower
 void drawFlower(float x, float y, float scale, int colorType)
 {
     glColor3ub(46, 125, 50);
@@ -1289,6 +1392,7 @@ void drawFlower(float x, float y, float scale, int colorType)
     circle(x, centerY, 1.3f * scale);
 }
 
+// (Sanzida) all spring flowers
 void drawFlowers()
 {
     if(currentSeason != SPRING)
@@ -1306,6 +1410,7 @@ void drawFlowers()
 // BUTTERFLIES
 // ======================================================
 
+// (Sanzida) one butterfly
 void drawButterfly(float x, float y, float scale, float flap)
 {
     float wingSpread = (0.5f + 0.5f * flap) * scale;
@@ -1321,6 +1426,7 @@ void drawButterfly(float x, float y, float scale, float flap)
     glEnd();
 }
 
+// (Sanzida) all butterflies
 void drawButterflies()
 {
     if(currentSeason != SPRING)
@@ -1341,9 +1447,7 @@ void drawButterflies()
 // SPRING ENVIRONMENT
 // ======================================================
 
-// Positioned using the exact same offset/wrap math as drawForest(),
-// so the hive stays visually attached to its tree as the forest
-// scrolls and wraps around the 300-unit cycle.
+// (Sanzida) bee hive and bees
 void drawBeeHive()
 {
     if(currentSeason != SPRING)
@@ -1415,6 +1519,7 @@ void drawBeeHive()
     }
 }
 
+// (Sanzida) flowers + butterflies + hive
 void drawSpringEnvironment()
 {
     drawFlowers();
@@ -1426,14 +1531,7 @@ void drawSpringEnvironment()
 // EXTRA EFFECTS  (J duck / K birds)
 // ======================================================
 
-// --- J: duck family crossing the road -------------------------
-// The family enters from the grass just above the road and
-// waddles straight down, through the road strip, and off the
-// bottom of the screen - a simple "crossing" motion. It is a
-// one-off foreground event, so it is NOT tied to worldMove; it
-// plays out entirely in fixed screen space over a couple of
-// seconds.
-
+// (Sanzida) spawn the duck family and stop the car
 void startDuckCrossing()
 {
     if(duckActive)
@@ -1445,10 +1543,6 @@ void startDuckCrossing()
     duckTrailHead = 0;
     duckTrailCount = 0;
 
-    // The family steps onto the road directly ahead of the car
-    // (the car's nose sits around carX + 19 at the current scale),
-    // so they're genuinely blocking the way rather than waddling
-    // past harmlessly off to one side.
     duckX = carX + 24.0f;
 
     // Seeing them, the driver hits the brakes: the car stops on
@@ -1457,6 +1551,7 @@ void startDuckCrossing()
     duckWaitingResume = false;
 }
 
+// (Sanzida) ducks cross, then release the car
 void updateDuckCrossing()
 {
     if(!duckActive)
@@ -1465,9 +1560,6 @@ void updateDuckCrossing()
     duckTimer += 0.02f;
     duckY -= 0.22f;
 
-    // Record where the parent actually is (wobble included) this
-    // frame, so the ducklings can retrace the same steps a little
-    // while later instead of being welded to a fixed offset.
     float wobble = 0.9f * (float)sin(duckTimer * 9.0f);
     duckTrailX[duckTrailHead] = duckX + wobble;
     duckTrailY[duckTrailHead] = duckY;
@@ -1486,11 +1578,7 @@ void updateDuckCrossing()
     }
 }
 
-// isParent switches between the drake's proper mallard colouring
-// (glossy green head, white neck ring, brown body, blue wing
-// patch) and a duckling's round, fluffy yellow down. legPhase
-// drives a small alternating leg-paddle so the waddle reads as
-// actual steps rather than a shape sliding around.
+// (Sanzida) one duck (parent or duckling)
 void drawDuck(float x, float y, float scale, bool isParent, float legPhase)
 {
     float legKick = 0.5f * (float)sin(legPhase);
@@ -1574,6 +1662,7 @@ void drawDuck(float x, float y, float scale, bool isParent, float legPhase)
     }
 }
 
+// (Sanzida) parent + 3 ducklings
 void drawDuckFamily()
 {
     if(!duckActive)
@@ -1592,11 +1681,6 @@ void drawDuckFamily()
 
         if(delay < duckTrailCount)
         {
-            // Follow the parent's own recorded path, a few frames
-            // behind - this naturally reproduces the same wobble
-            // and forward motion, just staggered in time, so the
-            // ducklings look like they're genuinely walking in
-            // the parent's tracks rather than being glued in place.
             int idx = duckTrailHead - 1 - delay;
             while(idx < 0) idx += DUCK_TRAIL_LEN;
             px = duckTrailX[idx];
@@ -1615,12 +1699,7 @@ void drawDuckFamily()
     }
 }
 
-// --- K: a small flock of birds flies across the sky --------------
-// Six birds in a loose V, cycling blue/yellow/red/white, cross
-// the whole screen once (left to right) and then clear. Screen-
-// space, like the duck crossing - not tied to worldMove, since
-// it's a short foreground/sky event rather than scrolling scenery.
-
+// (Sanzida) launch the flock
 void startBirdFlock()
 {
     if(birdActive)
@@ -1632,6 +1711,7 @@ void startBirdFlock()
     flockY = 32.0f + (float)(rand() % 25);
 }
 
+// (Sanzida) fly the flock across
 void updateBirdFlock()
 {
     if(!birdActive)
@@ -1644,8 +1724,7 @@ void updateBirdFlock()
         birdActive = false;
 }
 
-// A simple flapping "M" silhouette. colorIdx cycles through
-// blue/yellow/red/white; flap is -1..1 and drives the wing angle.
+// (Sanzida) one bird
 void drawBird(float x, float y, float scale, int colorIdx, float flap)
 {
     int r, g, b;
@@ -1660,9 +1739,6 @@ void drawBird(float x, float y, float scale, int colorIdx, float flap)
 
     float wingLift = (1.3f + flap) * scale;
 
-    // Wings: filled triangles tapering from near the body out to
-    // a point, instead of thin lines - reads as an actual wing
-    // shape and catches the flap motion much better.
     shadedColor(r, g, b, 1.00f);
     triangleShape(
         x - 0.6f * scale, y + 0.25f * scale,
@@ -1707,6 +1783,7 @@ void drawBird(float x, float y, float scale, int colorIdx, float flap)
     circle(x + 1.05f * scale, y + 0.62f * scale, 0.11f * scale);
 }
 
+// (Sanzida) the V formation
 void drawBirdFlock()
 {
     if(!birdActive)
@@ -1726,6 +1803,7 @@ void drawBirdFlock()
 // ROAD
 // ======================================================
 
+// (Talha) road strip and lane stripes
 void drawRoad()
 {
     glColor3ub(55, 55, 55);
@@ -1733,9 +1811,6 @@ void drawRoad()
     glColor3ub(255, 255, 255);
     for(float x = -150; x < 150; x += 30)
     {
-        // The road stripes are the "reference" layer and still
-        // use worldMove directly so they always match the car's
-        // true travel distance.
         float lineX = x + worldMove;
         while(lineX > 150) lineX -= 300;
         while(lineX < -150) lineX += 300;
@@ -1755,6 +1830,7 @@ bool showEndMessage = false;  // 8 has been pressed
 float benchX = 120.0f;        // comes in from the right
 float benchY = -40.0f;        // stands on the grass edge of the road
 
+// (Talha) the bench
 void drawBench()
 {
     if(!benchVisible)
@@ -1783,7 +1859,7 @@ void drawBench()
     rectangle(x - 11, y + 14, x + 11, y + 15.6f);
 }
 
-// The last screen of the whole journey.
+// (Talha) final message screen
 void drawEndMessage()
 {
     if(!showEndMessage)
@@ -1800,22 +1876,6 @@ void drawEndMessage()
 // ======================================================
 // THE MAN  -  ONE LIFE, SIX AGES
 // ======================================================
-//
-// Everything about the man is kept together in this one block:
-// where he is, how he ages, and how he is drawn sitting,
-// walking and driving.
-//
-// The age stage is simply the season number, so the man grows
-// older every time a new season is entered with keys 0 - 5:
-//
-//   0  sedlife : young man   - full black hair, clean shaven
-//   1  SPRING  : late 20s    - full black hair, light stubble
-//   2  SUMMER  : mid 30s     - full hair, short black beard
-//   3  RAINY   : mid 40s     - hairline receding, thick beard
-//   4  AUTUMN  : late 50s    - balding (side hair), grey beard
-//   5  WINTER  : old man     - bald head, long white beard
-//
-// His life in this scene runs through five states:
 
 #define MAN_ON_GRASS      0   // sitting on the grass, waiting
 #define MAN_WALK_TO_CAR   1   // walking over to the car (key F)
@@ -1829,13 +1889,14 @@ float manX = -58.0f;          // feet position while he is outside
 float manY = -30.0f;          // he starts on the grass
 float manWalkSpeed = 0.42f;
 
+// (Talha) age stage = season number
 int manAge()
 {
     // sedlife = 0 ... WINTER = 5
     return currentSeason;
 }
 
-// Skin gets a little paler with age.
+// (Talha) skin colour by age
 void manSkinColor(int stage)
 {
     if(stage <= 1)      glColor3ub(245, 205, 170);
@@ -1843,7 +1904,7 @@ void manSkinColor(int stage)
     else                glColor3ub(228, 195, 172);
 }
 
-// Hair / beard color: black -> dark grey -> grey -> white.
+// (Talha) hair colour by age
 void manHairColor(int stage)
 {
     if(stage <= 2)      glColor3ub(35, 25, 20);
@@ -1852,7 +1913,7 @@ void manHairColor(int stage)
     else                glColor3ub(242, 242, 242);
 }
 
-// Shirt gets darker as the man gets older.
+// (Talha) shirt colour by age
 void manShirtColor(int stage)
 {
     if(stage == 0)      glColor3ub(70, 150, 220);
@@ -1863,15 +1924,14 @@ void manShirtColor(int stage)
     else                glColor3ub(110, 110, 120);
 }
 
+// (Talha) trouser colour by age
 void manTrouserColor(int stage)
 {
     if(stage <= 2)      glColor3ub(45, 55, 85);
     else                glColor3ub(60, 60, 70);
 }
 
-// The hair sits BEHIND the face: a circle pushed up (and back)
-// so only its top rim shows around the skin, which is what a
-// hairline looks like. Nothing here but plain circles.
+// (Talha) hair behind the face
 void drawManHairBack(int stage, float hx, float hy, float hr)
 {
     manHairColor(stage);
@@ -1899,7 +1959,7 @@ void drawManHairBack(int stage, float hx, float hy, float hr)
     }
 }
 
-// The little fringe on the forehead, only while the hair is full.
+// (Talha) forehead fringe
 void drawManFringe(int stage, float hx, float hy, float hr)
 {
     if(stage > 2)
@@ -1908,8 +1968,7 @@ void drawManFringe(int stage, float hx, float hy, float hr)
     rectangle(hx + 0.35f * hr, hy + 0.40f * hr, hx + 0.95f * hr, hy + 0.88f * hr);
 }
 
-// The beard is a row of overlapping circles along the jaw, and a
-// straight block under the chin once it gets long.
+// (Talha) beard by age
 void drawManBeard(int stage, float hx, float hy, float hr)
 {
     if(stage == 0)
@@ -1953,7 +2012,7 @@ void drawManBeard(int stage, float hx, float hy, float hr)
     rectangle(hx + 0.05f * hr, hy - 0.52f * hr, hx + 0.85f * hr, hy - 0.18f * hr);
 }
 
-// Face + beard + hair + details. Used by every pose.
+// (Talha) face and head
 void drawManHead(int stage, float hx, float hy, float hr)
 {
     // Hair first, so the face covers all but its rim.
@@ -1996,8 +2055,7 @@ void drawManHead(int stage, float hx, float hy, float hr)
     }
 }
 
-// The man behind the wheel. (x, y) is the car origin, so this
-// is drawn inside the car's own scaled coordinates.
+// (Talha) man behind the windscreen
 void drawManInCar(float x, float y)
 {
     if(!manInCar)
@@ -2020,9 +2078,7 @@ void drawManInCar(float x, float y)
     drawManHead(stage, hx, hy, hr);
 }
 
-// The standing figure. (fx, fy) is where his feet are.
-// He simply slides to where he is going, so the legs and the
-// arm stay in one fixed pose.
+// (Talha) standing pose
 void drawManStanding(float fx, float fy)
 {
     int stage = manAge();
@@ -2066,8 +2122,7 @@ void drawManStanding(float fx, float fy)
     drawManHead(stage, fx, headY, hr);
 }
 
-// Sitting on the grass, legs stretched out to the right.
-// (x, y) is the spot of grass he is sitting on.
+// (Talha) sitting on the grass
 void drawManSitOnGrass(float x, float y)
 {
     int stage = manAge();
@@ -2108,8 +2163,7 @@ void drawManSitOnGrass(float x, float y)
     drawManHead(stage, x, headY, hr);
 }
 
-// Sitting on the bench. seatY is the top of the seat,
-// groundY is where his shoes rest.
+// (Talha) sitting on the bench
 void drawManSitOnBench(float x, float seatY, float groundY)
 {
     int stage = manAge();
@@ -2150,7 +2204,7 @@ void drawManSitOnBench(float x, float seatY, float groundY)
     drawManHead(stage, x, headY, hr);
 }
 
-// The man whenever he is NOT inside the car.
+// (Talha) pick the pose
 void drawManOutside()
 {
     if(manState == MAN_ON_GRASS)
@@ -2161,7 +2215,7 @@ void drawManOutside()
         drawManSitOnBench(benchX - 1.0f, benchY + 8.0f, benchY);
 }
 
-// Walks one step towards a target, and switches state on arrival.
+// (Talha) one step toward a target
 void manWalkTowards(float tx, float ty, int nextState)
 {
     float dx = tx - manX;
@@ -2179,6 +2233,7 @@ void manWalkTowards(float tx, float ty, int nextState)
     manY += manWalkSpeed * dy / d;
 }
 
+// (Talha) walk to the car / bench
 void updateMan()
 {
     if(manState == MAN_WALK_TO_CAR)
@@ -2200,9 +2255,7 @@ void updateMan()
     }
 }
 
-// After key 9: the car brakes, the bench slides in with the
-// world, and when everything has stopped the man steps out of
-// the upper side of the car and walks over to it.
+// (Talha) brake, bench in, man out
 void updateEnding()
 {
     if(!endingStarted)
@@ -2228,8 +2281,7 @@ void updateEnding()
 // CAR
 // ======================================================
 
-// The car shape, drawn around its own origin. drawCar() below
-// puts it on the road and scales the whole thing up.
+// (Talha) car body, headlight, wheels
 void drawCarShape(float x, float y)
 {
     glColor3ub(200, 30, 30);
@@ -2298,6 +2350,7 @@ void drawCarShape(float x, float y)
     }
 }
 
+// (Talha) place and scale the car
 void drawCar(float x, float y)
 {
     glPushMatrix();
@@ -2311,6 +2364,7 @@ void drawCar(float x, float y)
 // CAVE / TUNNEL
 // ======================================================
 
+// (Talha) cave mouth
 void drawCave()
 {
     if(!tunnelVisible)
@@ -2328,6 +2382,7 @@ void drawCave()
     glEnd();
 }
 
+// (Talha) dark season screen
 void drawTunnelDarkness()
 {
     if(transitionStage != 3)
@@ -2353,6 +2408,7 @@ void drawTunnelDarkness()
 // HINT BOX  (top left, only before the journey starts)
 // ======================================================
 
+// (Talha) key list
 void drawHintBox()
 {
     if(manState != MAN_ON_GRASS)
@@ -2360,12 +2416,12 @@ void drawHintBox()
 
     // box
     glColor3ub(255, 255, 240);
-    rectangle(-96, -14, -40, 96);
+    rectangle(-96, -18, -40, 96);
     glColor3ub(40, 40, 40);
     glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
-    glVertex2f(-96, -14);
-    glVertex2f(-40, -14);
+    glVertex2f(-96, -18);
+    glVertex2f(-40, -18);
     glVertex2f(-40, 96);
     glVertex2f(-96, 96);
     glEnd();
@@ -2380,19 +2436,17 @@ void drawHintBox()
     drawText(-93, 44, "J   DUCKS CROSS ROAD");
     drawText(-93, 36, "S   DRIVE ON AFTER DUCKS");
     drawText(-93, 28, "K   BIRDS FLYING");
-    drawText(-93, 12, "V   FIRST-PERSON VIEW");
-    drawText(-93, 0,  "ANY SEASON:");
-    drawText(-93, -8, "A/D STEER LEFT/RIGHT");
+    drawText(-93, 20, "V   FIRST-PERSON VIEW");
+    drawText(-93, 8,  "RAINY:  T  THUNDER");
+    drawText(-93, -4, "ANY SEASON:");
+    drawText(-93, -12, "A/D STEER LEFT/RIGHT");
 }
 
 // ======================================================
 // WORLD & TRANSITION UPDATE
 // ======================================================
 
-// Advances every layer's own offset by worldSpeed times that
-// layer's speed multiplier. Layers with a multiplier below 1.0
-// scroll slower (read as "farther away"); above 1.0 scroll
-// faster (read as "closer to the camera").
+// (Talha) scroll every background layer
 void updateWorld()
 {
     // Nothing moves until the man is in the car.
@@ -2424,6 +2478,7 @@ void updateWorld()
     }
 }
 
+// (Talha) the 6-stage season change
 void updateSeasonTransition()
 {
     if(!changingSeason)
@@ -2517,24 +2572,13 @@ void updateSeasonTransition()
 // ======================================================
 // FIRST-PERSON POV  (V key)
 // ======================================================
-// Everything below builds the "inside the car, looking through
-// the windshield" shot out of the same plain shapes used
-// everywhere else in the file - no cave/tunnel function involved.
-// It reuses drawSky()/drawSun()/drawClouds() (already season-
-// aware) plus drawTree()/drawFlower() (also season-aware) so the
-// pov always matches whatever season the drive is currently in.
 
-// Starts (or reverses) the blink. Ignores extra presses while a
-// blink is already in progress, so rapid taps can't get it stuck.
+// (Sanzida) start the blink into / out of POV
 void startPovToggle()
 {
     if(povBlinkStage != 0)
         return;
 
-    // The pov is a spring-only view. Entering it is blocked in
-    // every other season (and in the default sedlife state), but
-    // leaving it is always allowed - otherwise a season change
-    // while inside the pov could strand you in there.
     if(!povActive && currentSeason != SPRING)
         return;
 
@@ -2542,17 +2586,14 @@ void startPovToggle()
     povBlinkTimer = 0.0f;
 }
 
-// A cheap, deterministic pseudo-random value in [0,1) for a given
-// seed. Used to scatter the forest so it reads as organic rather
-// than a perfectly even row of trees, while staying exactly the
-// same shape every frame (a real rand() call here would make the
-// whole forest flicker/jitter every redraw).
+// (Sanzida) fixed pseudo-random scatter
 float povHash(float n)
 {
     float x = (float)sin((double)n * 12.9898) * 43758.5453f;
     return x - (float)floor((double)x);
 }
 
+// (Sanzida) blink timer
 void updatePovBlink()
 {
     if(povBlinkStage == 0)
@@ -2567,15 +2608,7 @@ void updatePovBlink()
     }
 }
 
-// A fan of wide, soft light bands, each one anchored right at
-// the edge of the sun disc (75,78) and reaching down across the
-// scene. Each band is actually three overlapping wedges of the
-// same angle, widest and faintest on the outside and narrowest
-// and brightest in the middle - that layered feathering is what
-// turns it into a soft glowing shaft instead of a single hard-
-// edged sliver that just reads as a thin line. Colour is a
-// near-white sky tint (not a saturated sun-yellow), so it lightens
-// the blue sky the way an actual beam of daylight does.
+// (Sanzida) sun rays from the sun disc
 void drawPovSunRays()
 {
     if(currentSeason == WINTER)
@@ -2583,10 +2616,6 @@ void drawPovSunRays()
 
     float sunX = 75.0f, sunY = 78.0f, sunR = 9.0f;
 
-    // Angles fan from lower-left to nearly straight down (degrees,
-    // standard math convention: 180 = left, 270 = down), with a
-    // length tuned per ray so they all reach roughly the same
-    // depth into the scene despite their different angles.
     float rayAngleDeg[4] = { 222.0f, 242.0f, 258.0f, 274.0f };
     float rayLength[4]   = { 190.0f, 158.0f, 138.0f, 128.0f };
 
@@ -2605,9 +2634,6 @@ void drawPovSunRays()
             float halfSpread = spreadDeg[layer] * (float)PI / 180.0f;
             float baseR = sunR * 0.7f;
 
-            // The two near-vertices sit right on the sun's edge;
-            // the far vertex is where the beam fades into the
-            // scene.
             float ax = sunX + baseR * (float)cos(baseAngle - halfSpread);
             float ay = sunY + baseR * (float)sin(baseAngle - halfSpread);
             float bx = sunX + baseR * (float)cos(baseAngle + halfSpread);
@@ -2622,9 +2648,7 @@ void drawPovSunRays()
     glDisable(GL_BLEND);
 }
 
-// A soft pale haze sitting right along the horizon - the hazy,
-// slightly bleached-out look a bright day gets right where the
-// road and sky meet.
+// (Sanzida) haze along the horizon
 void drawPovHorizonGlow()
 {
     float horizonY = -20.0f;
@@ -2640,9 +2664,7 @@ void drawPovHorizonGlow()
     glDisable(GL_BLEND);
 }
 
-// Bigger, more numerous, fluffier clouds than the third-person
-// scene uses - reads more like a bright, wide-open countryside
-// sky than the smaller background clouds do.
+// (Sanzida) POV clouds
 void drawPovClouds()
 {
     drawCloud(-82, 58, 8);
@@ -2654,27 +2676,14 @@ void drawPovClouds()
     drawCloud(94, 76, 7);
 }
 
-// The road surface and a dashed centre line, converging to a
-// single point sitting right on the horizon (the same horizon
-// drawSky()/drawGround() already use). The ground either side is
-// shaded forest floor rather than an open field, since the trees
-// now come right up to the road.
+// (Sanzida) POV road and lane dashes
 void drawPovRoad()
 {
     float horizonY = -20.0f;
 
-    // Shaded forest floor, running the full width - a fairly
-    // deep green since it sits under a lot of tree cover, not an
-    // open sunlit field.
     glColor3ub(58, 96, 46);
     rectangle(-100, -60, 100, horizonY);
 
-    // A continuous grass carpet across the whole lower band. This
-    // is what actually fixes the "separated" look: the bush
-    // clumps below sit on top of solid colour everywhere, so
-    // there's never a gap showing the darker forest floor behind
-    // them - it reads as one continuous strip of undergrowth with
-    // clumps as texture, not scattered islands of grass.
     if(currentSeason == WINTER)
         glColor3ub(225, 230, 235);
     else if(currentSeason == SUMMER)
@@ -2704,9 +2713,6 @@ void drawPovRoad()
     glVertex2f(4.6f, horizonY); glVertex2f(4, horizonY);
     glEnd();
 
-    // Dashed centre line: a handful of bars that shrink and rise
-    // toward the vanishing point, gently animated so they appear
-    // to slide forward under the car.
     glColor3ub(210, 200, 175);
     float t = povWheelTime * 0.6f;
     t -= (float)((int)t);
@@ -2721,11 +2727,7 @@ void drawPovRoad()
     }
 }
 
-// A solid clump of undergrowth: a few overlapping filled ellipses
-// guarantee full coverage with no gaps showing the ground colour
-// through it (unlike a couple of separate pointy grass tufts,
-// which leave visible gaps between them), topped with a couple of
-// pointed tufts on top purely for texture.
+// (Sanzida) gapless undergrowth clump
 void drawBushClump(float x, float y, float scale)
 {
     if(currentSeason == WINTER)
@@ -2746,25 +2748,7 @@ void drawBushClump(float x, float y, float scale)
     drawGrass(x + 1.1f * scale, y + 0.2f * scale, 1.0f * scale);
 }
 
-// One side of the forest, built as a small set of "slots" that
-// continuously scroll from the horizon toward the camera and then
-// loop back to the horizon - this is what makes the pov read as
-// driving THROUGH the forest instead of looking at a frozen
-// postcard of it.
-//
-// The motion is real inverse-distance perspective rather than a
-// straight linear grow/slide: each slot has a "distance ahead" z
-// that shrinks as it approaches, and both its screen-x and its
-// size are proportional to 1/z. That's what makes a tree swing
-// hard out toward (and past) the edge of the screen as it grows,
-// so it actually crosses by the window like a real roadside tree
-// would. Trees keep growing at full perspective size right up
-// until they leave the visible area - they exit purely by going
-// off-frame (past ±100), never by shrinking back down first,
-// since the lateral swing is tuned to comfortably clear the
-// screen edge well before the cycle wraps. Painter's algorithm
-// (sorted far-to-near before drawing) still applies underneath
-// it all.
+// (Sanzida) roadside forest in perspective
 void drawPovForestSide(float side)
 {
     float horizonY = -20.0f;
@@ -2785,24 +2769,11 @@ void drawPovForestSide(float side)
 
     for(int row = 0; row < ROWS; row++)
     {
-        // The second row sits physically further from the road,
-        // so at any given distance ahead it reads a bit smaller
-        // and swings a bit further out to the side than the
-        // first. Both lateral constants are sized generously so
-        // that even at the worst-case jitter, the tree is well
-        // past the ±100 screen edge by the time it's at its
-        // biggest/nearest - it exits by leaving the frame, never
-        // by shrinking.
         float lateralK = (row == 0) ? 560.0f : 780.0f;
         float scaleK   = (row == 0) ? 7.5f   : 6.0f;
 
         for(int i = 0; i < SLOTS; i++)
         {
-            // f sweeps 0 (far, at the horizon) to 1 (near, right
-            // beside the car) and then wraps back to 0 - loopIndex
-            // changes each time it wraps, so the reseeded jitter
-            // below gives each pass a slightly different look
-            // instead of an obviously repeating loop.
             float raw = (float)i / SLOTS + povWheelTime * scrollSpeed + row * (0.5f / SLOTS);
             float loopIndex = (float)floor((double)raw);
             float f = raw - loopIndex;
@@ -2814,18 +2785,10 @@ void drawPovForestSide(float side)
             float seed = side * 61.0f + i * 7.3f + row * 133.0f + loopIndex * 271.0f;
             float lateralJitter = 1.0f + (povHash(seed) - 0.5f) * 0.3f;
 
-            // Inverse-distance perspective: screen-x and scale
-            // both grow as 1/z, so the tree swings out toward the
-            // edge of the screen at the same time it gets bigger,
-            // and is safely off-frame (so simply clipped, not
-            // shrunk) well before z reaches zNear.
             float screenX = side * (lateralK * lateralJitter) / z;
             float screenY = horizonY - groundDropK * (1.0f / z - 1.0f / zFar);
             float scale = scaleK / z;
 
-            // Small residual jitter for an organic look, kept
-            // deliberately tiny now that perspective does the
-            // heavy lifting.
             float jx = (povHash(seed + 0.37f) - 0.5f) * 2.0f;
             float jy = (povHash(seed + 0.53f) - 0.5f) * 1.2f;
 
@@ -2838,10 +2801,6 @@ void drawPovForestSide(float side)
             scaleArr[n] = scale;
             typeArr[n] = type;
 
-            // Two solid, gapless bush clumps at the tree's base
-            // (extra density, per request), both sized and
-            // positioned in step with the tree - same f, so they
-            // scroll at exactly the same speed as everything else.
             float gx = screenX + (povHash(seed + 0.19f) - 0.5f) * (1.5f + scale * 1.5f);
             float gy = screenY - (1.5f + scale * 1.5f);
             g1x[n] = gx;  g1y[n] = gy;  g1s[n] = 0.55f + scale * 0.75f;
@@ -2854,11 +2813,6 @@ void drawPovForestSide(float side)
         }
     }
 
-    // Painter's algorithm: a small insertion sort (n is tiny, so
-    // this costs nothing) ordering everything far-to-near (sorting
-    // by f ascending is the same as sorting by distance
-    // descending), so nearer trees always land on top of farther
-    // ones regardless of which slot currently holds which depth.
     for(int a = 1; a < n; a++)
     {
         float kf = fArr[a], kx = xArr[a], ky = yArr[a], ks = scaleArr[a];
@@ -2889,15 +2843,7 @@ void drawPovForestSide(float side)
     }
 }
 
-// Pink and white spring flowers along the grassy edge right next
-// to the road. They use the exact same inverse-distance
-// perspective and painter's-algorithm sort as the forest above
-// (just a shorter, gentler range, since they're small roadside
-// accents rather than big trees), so they cross by in step with
-// everything else. Like the trees, they keep their full size
-// right up until they leave the frame - no shrinking, just
-// clipping off-screen. Only in spring, same as everywhere else
-// flowers appear.
+// (Sanzida) roadside flowers
 void drawPovFlowers()
 {
     if(currentSeason != SPRING)
@@ -2960,15 +2906,9 @@ void drawPovFlowers()
         drawFlower(xArr[k], yArr[k], scaleArr[k], colorArr[k]);
 }
 
-// The windshield frame: a thin header (not thick pillars, so the
-// view stays wide open like the reference photo), a rear-view
-// mirror with a hint of the road reflected in it, and a proper
-// dashboard with air vents and a centre console.
+// (Sanzida) windscreen, mirror, dashboard
 void drawPovCarInterior()
 {
-    // A thin windshield header along the very top - just enough
-    // to read as glass meeting the roof, not a pillar blocking
-    // the view.
     glColor3ub(28, 26, 24);
     rectangle(-100, 94, 100, 100);
 
@@ -3011,13 +2951,7 @@ void drawPovCarInterior()
     rectangle(-6.0f, -60.0f, 6.0f, -40.0f);
 }
 
-// The steering wheel, gently swaying, tucked into the lower-left
-// of the frame and mostly cropped by the bottom edge - the same
-// off-centre, partially-cropped composition as the reference
-// photo - with a pair of hands gripping the visible upper arc.
-// The hands use the same age-based skin/shirt colouring as the
-// man everywhere else in the scene, so they visibly age right
-// along with him.
+// (Sanzida) wheel and hands
 void drawPovSteeringWheel()
 {
     float cx = -34.0f;
@@ -3070,10 +3004,6 @@ void drawPovSteeringWheel()
         float a = gripAngle[side] + swayRad;
         float radialX = (float)cos(a);
         float radialY = (float)sin(a);
-        // Tangent to the rim at this point - the whole hand is
-        // built along this direction so it follows the wheel's
-        // actual curve instead of sitting in a fixed box no
-        // matter where on the rim it grips.
         float tangX = -radialY;
         float tangY = radialX;
         // Left hand fans one way along the tangent, right hand
@@ -3083,9 +3013,6 @@ void drawPovSteeringWheel()
         float hx = cx + (outerR - 1.0f) * radialX;
         float hy = cy + (outerR - 1.0f) * radialY;
 
-        // Forearm: two stacked quads trailing toward the wheel's
-        // centre, noticeably thick so it reads as a man's forearm
-        // rather than a child's.
         manShirtColor(stage);
         orientedQuad(hx - radialX * 5.5f, hy - radialY * 5.5f, radialX, radialY, 3.6f, 2.6f);
         orientedQuad(hx - radialX * 2.6f, hy - radialY * 2.6f, radialX, radialY, 2.2f, 2.9f);
@@ -3094,24 +3021,13 @@ void drawPovSteeringWheel()
         manSkinColor(stage);
         orientedQuad(hx - radialX * 0.8f, hy - radialY * 0.8f, radialX, radialY, 1.1f, 2.5f);
 
-        // Back of the hand: one broad, squared-off quad across the
-        // knuckles (wide along the tangent, shallow along the
-        // radial/depth direction) instead of a round blob, so it
-        // reads as a hand shape and not a fist-sized ball. No
-        // separate finger/thumb quads - just this block sitting on
-        // the rim reads cleanly at this scale without turning into
-        // clutter.
         orientedQuad(hx + radialX * 0.9f, hy + radialY * 0.9f, tangX * fan, tangY * fan, 3.4f, 2.3f);
     }
 }
 
+// (Sanzida) the whole first-person view
 void drawPovScene()
 {
-    // A very small continuous bob/sway on the whole view - like
-    // the car (and your head) gently jostling over an uneven dirt
-    // road. Combined with the forest scrolling and the dashed
-    // line moving, this is what actually sells "moving" instead
-    // of "parked in front of a painted backdrop".
     float bobY = 0.35f * (float)sin(povWheelTime * 3.1f);
     float bobX = 0.15f * (float)sin(povWheelTime * 2.3f + 1.0f);
 
@@ -3124,25 +3040,11 @@ void drawPovScene()
     drawPovHorizonGlow();
     drawPovSunRays();
 
-    // Distant mountains behind the tree line, reusing the same
-    // season-coloured drawMountains() the third-person view uses.
-    // They deliberately stay STILL here: mountainMove is saved,
-    // zeroed for the draw, then restored, so the shared offset
-    // keeps advancing normally for the third-person view while
-    // the pov renders them at a fixed position. (The pov is
-    // spring-only, so the winter-mountain variant never applies.)
-    // Kept outside the steering-shift block below, same as the
-    // sky/clouds, since something this far away shouldn't swing
-    // with a bit of A/D steering.
     float savedMountainMove = mountainMove;
     mountainMove = 0.0f;
     drawMountains();
     mountainMove = savedMountainMove;
 
-    // The whole outdoor layer shifts opposite to the car's lane
-    // position, so steering with A/D visibly moves the road and
-    // forest under the (fixed) dashboard/wheel, the way it would
-    // if you were actually steering side to side on the road.
     float shiftScale = 0.35f;
     glPushMatrix();
     glTranslatef(-carX * shiftScale, 0.0f, 0.0f);
@@ -3163,10 +3065,7 @@ void drawPovScene()
     glPopMatrix();
 }
 
-// A small on-screen prompt while the car is halted for the duck
-// family - first telling you to wait, then that S will pull away
-// again once they're clear. Drawn in both the normal view and the
-// pov, so the message isn't lost if you're in first-person.
+// (Sanzida) on-screen wait / press-S message
 void drawDuckStopPrompt()
 {
     if(!duckStopActive)
@@ -3183,6 +3082,7 @@ void drawDuckStopPrompt()
 // DISPLAY
 // ======================================================
 
+// (Talha) draw order for the whole scene
 void display()
 {
     glClear(GL_COLOR_BUFFER_BIT);
@@ -3217,9 +3117,9 @@ void display()
     }
         drawMountains();
     drawGround();
+    drawPuddles();
     drawRoad();
     drawRoadGrass();
-
 
     drawForestBg();
    // drawMountains();
@@ -3231,9 +3131,6 @@ void display()
         {drawSpringEnvironment();}
     if(currentSeason == AUTUMN)
     {
-        // Landed leaves are drawn first so they sit on the ground
-        // under the trees/forest bg; falling leaves draw last so
-        // they're never hidden behind a tree trunk or canopy.
         drawLandedAutumnLeaves();
     }
     drawBirdFlock();
@@ -3241,6 +3138,12 @@ void display()
         {drawSnow();}
     if(currentSeason == AUTUMN)
         {drawFallingAutumnLeaves();}
+    // Darken the rainy world first, then keep the rain and the
+    // lightning bright on top of it.
+    drawStormOverlay();
+    drawRain();
+    drawLightning();
+
     drawBench();
     drawDuckFamily();
     if(tunnelVisible && transitionStage != 3)
@@ -3262,6 +3165,7 @@ void display()
 // UPDATE / ANIMATION
 // ======================================================
 
+// (Talha) animation timer
 void update(int value)
 {
     if(!paused)
@@ -3276,10 +3180,6 @@ void update(int value)
                 worldSpeed = worldSpeedMax;
         }
 
-        // Braking for the ducks: the car slows to a complete stop
-        // and stays there until S is pressed. Skipped once the
-        // ending has started, since updateEnding() is already
-        // running its own braking there.
         if(duckStopActive && !endingStarted && worldSpeed > 0.0f)
         {
             worldSpeed -= duckBrake;
@@ -3310,6 +3210,9 @@ void update(int value)
         if(changingSeason)
             updateSeasonTransition();
         updateClouds();
+        updateLightning();
+        if(currentSeason == RAINY)
+            updateRain();
         if(currentSeason == SPRING)
         {
             butterflyTime += 0.05f;
@@ -3337,21 +3240,14 @@ void update(int value)
 // KEYBOARD
 // ======================================================
 
-// Shared gate for the effect keys (J/K/V): only while the
-// man is actually driving, nothing else is mid-transition, and
-// only during SPRING - the ducks, birds and first-person
-// view are all spring-only flourishes, so none of them fire in
-// the default sedlife state or in summer/rainy/autumn/winter.
-// A/D steering deliberately does NOT go through this gate, since
-// steering stays available in every season.
+// (Sanzida) gate for J / K / V (spring, driving only)
 bool canTriggerEffect()
 {
     return (manState == MAN_IN_CAR && !endingStarted && !changingSeason
             && currentSeason == SPRING);
 }
 
-// One helper for all six season keys. Seasons can only be
-// changed while the man is driving.
+// (Talha) begin a season change
 void startSeasonChange(int season)
 {
     if(manState != MAN_IN_CAR || endingStarted)
@@ -3369,24 +3265,17 @@ void startSeasonChange(int season)
     carInsideTunnel = false;
     transitionCarX = carX;
 
-    // The pov is spring-only, and the tunnel transition has to be
-    // watched from the third-person view anyway, so leaving spring
-    // (or entering it) always drops straight back out of the pov
-    // rather than leaving you looking at a pov of the wrong season.
     povActive = false;
     povBlinkStage = 0;
     povBlinkTimer = 0.0f;
 
-    // The J/K flourishes are spring-only too, so anything still
-    // playing is cleared here - otherwise a duck family mid-cross
-    // would carry straight over into summer or winter, where it
-    // has no business being.
     duckActive = false;
     duckStopActive = false;
     duckWaitingResume = false;
     birdActive = false;
 }
 
+// (Talha) key handling
 void keyboard(unsigned char key, int x, int y)
 {
     if(key == 'f' || key == 'F')
@@ -3441,23 +3330,21 @@ void keyboard(unsigned char key, int x, int y)
     }
     else if(key == 'v' || key == 'V')
     {
-        // Same driving-only gate as J/K. It also covers
-        // toggling back OUT of the pov, since being in the pov
-        // doesn't change manState - the man is still "in the car"
-        // the whole time.
         if(canTriggerEffect())
             startPovToggle();
     }
     else if(key == 's' || key == 'S')
     {
-        // Pull away again after a duck crossing. Deliberately
-        // ignored while they're still on the road - you have to
-        // wait for them to finish before S does anything.
         if(duckWaitingResume)
         {
             duckStopActive = false;
             duckWaitingResume = false;
         }
+    }
+    else if(key == 't' || key == 'T')
+    {
+        // Thunder clap and lightning flash - rainy season only.
+        triggerThunder();
     }
     else if(key == 'a' || key == 'A')
         steerLeftDown = true;
@@ -3471,8 +3358,7 @@ void keyboard(unsigned char key, int x, int y)
     glutPostRedisplay();
 }
 
-// Clears the steering flags the moment A or D is released, so the
-// car only moves for as long as the key is actually held down.
+// (Sanzida) release A / D steering
 void keyboardUp(unsigned char key, int x, int y)
 {
     if(key == 'a' || key == 'A')
@@ -3485,6 +3371,7 @@ void keyboardUp(unsigned char key, int x, int y)
 // INITIALIZATION
 // ======================================================
 
+// (Talha) projection and start-up
 void init()
 {
     glClearColor(0.50f, 0.80f, 1.0f, 1.0f);
@@ -3493,6 +3380,7 @@ void init()
     gluOrtho2D(-100, 100, -60, 100);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     initSnow();
+    initRain();
     initAutumnLeaves();
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -3502,6 +3390,7 @@ void init()
 // MAIN
 // ======================================================
 
+// (Talha) window and GLUT setup
 int main(int argc, char** argv)
 {
     glutInit(&argc, argv);
